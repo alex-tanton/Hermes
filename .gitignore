@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Test coverage
+coverage/
+
+# Runtime data & logs
+.data/
+logs/
+audit/
+*.log
+
+# Planning & workflows
+.planning/
+
+# Environment & local secrets
+.env
+.env.local
+config.local.yaml
+config.yaml
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
