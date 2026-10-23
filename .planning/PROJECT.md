@@ -9,37 +9,42 @@
 - **Authentic Recommendation Storytelling**: Embeds real personal anecdotes and experience into each recommendation so posts read like genuine advice rather than automated spam.
 - **Strict Compliance & Safety**: Enforces safe simulation (dry-run) out of the box, automatic FTC referral disclosures (16 CFR Part 255), and anti-bot jitter.
 - **Cross-Platform Adaptability**: Formats posts tailored to each platform's character limits and markdown rules (Reddit, Discord, Bluesky, Facebook, Twitter).
-- **Zero-Database Lightweight Architecture**: Operates with zero cloud database dependencies, storing audit trails and cooldowns locally in JSON.
+- **Zero-Database Lightweight Architecture**: Operates with zero cloud database dependencies, storing audit trails and cooldowns locally in JSON with atomic cross-process file locks.
 
 ---
 
-## Current State: v1.0 (Baseline Architecture)
-- **Engine Core**:
-  - `ReferralRepeaterEngine` with link rotation and daily rate limit checks.
+## Current State: v1.1 (Live Distribution & Hardening Complete)
+- **Engine Core & Scheduling**:
+  - `ReferralRepeaterEngine` with priority-weighted and fair round-robin rotation.
+  - Per-platform `cooldownHours` and `maxPostsPerDay` rate limiting.
   - `AutonomousScheduler` with `node-cron` and randomized anti-bot jitter.
-  - `HistoryTracker` local JSON audit trail (`.data/history.json`).
-  - `Logger` terminal preview boxes and log file writer.
-- **Adapters**:
-  - Reddit, Discord, Bluesky, Facebook, Twitter adapters with credential validation and simulated dispatches.
-- **CLI Commands**:
-  - `init` (interactive setup wizard using `@inquirer/prompts`)
-  - `post` (immediate cycle with dry-run/live/force/platform flags)
-  - `daemon` (background recurring scheduler)
-  - `validate` (configuration and credentials health check)
-  - `history` (audit logs, stats, and cooldown cache clearing)
+  - `HistoryTracker` with `proper-lockfile` cross-process locking and atomic `.tmp` rename protecting `.data/history.json`.
+- **Live Dispatches**:
+  - Real API dispatches for Discord (webhook with `?wait=true`), Bluesky (AT Protocol XRPC), Reddit (OAuth2 password flow), Twitter/X (pure Node crypto OAuth 1.0a), and Facebook (Graph API v19.0).
+  - Multi-platform resilience matrix handling offline failures, timeouts, 401s, 429s, and 500s.
+- **Production Packaging**:
+  - Multi-stage Docker container (`node:20-alpine`) running unprivileged `node` user with volume mounts.
+  - Ready-to-run `docker-compose.yml`, PM2 `ecosystem.config.cjs`, and Linux `referral-repeater.service` systemd unit template.
+  - Comprehensive deployment documentation in `INSTALL.md` and `README.md`.
 - **Quality**:
-  - 100% test pass rate across 7 test suites (44 tests in Vitest).
-  - ESLint and Prettier clean with conventional commit enforcement.
+  - 106 unit, stress, integration, and packaging tests passing across 8 test suites.
+  - 100% clean TypeScript build, ESLint, and Prettier checks.
+
+<details>
+<summary>Archived Milestone v1.0 Details</summary>
+
+### v1.0 Baseline Architecture
+- Architecture, AST validation, interactive wizard, dry-run simulation, FTC disclosures, tone engine, and 44 unit tests.
+</details>
 
 ---
 
-## Active Milestone: v1.1 — Live Distribution & Production Hardening
-
-### Objectives
-1. **Live Platform Network Dispatches**: Implement real HTTP and API integrations (Discord Webhook `fetch`, Bluesky XRPC via `@atproto/api` or HTTPS, Reddit OAuth2 script client, Twitter API v2, Facebook Graph API).
-2. **Concurrency & Safe File Locking**: Prevent state corruption by implementing atomic file locking or mutex on `.data/history.json`.
-3. **Granular Platform Rate Limits & Weighted Rotation**: Allow per-platform cooldown/daily cap overrides in `config.yaml`, and replace first-match link selection with weighted or round-robin rotation.
-4. **Daemon Production Packaging**: Supply Docker containerization (`Dockerfile`, `docker-compose.yml`) and PM2 / systemd configuration templates for 24/7 autonomous hosting.
+## Next Milestone Goals
+- Plan the next milestone cycle using `/gsd-new-milestone`. Potential areas:
+  - Web dashboard or UI status viewer
+  - Dynamic template expansions and AI-assisted tone variation
+  - Additional platform adapters (Telegram, LinkedIn, Mastodon, WhatsApp Channels)
+  - Post engagement / click tracking analytics
 
 ---
 

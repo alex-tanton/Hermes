@@ -1,11 +1,11 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.1
-milestone_name: Live Distribution & Hardening
-status: Milestone v1.1 audit passed
-stopped_at: Milestone v1.1 audit passed
-last_updated: "2026-10-23T17:30:00.000Z"
-state_head: c0ad767
+milestone: None
+milestone_name: None
+status: Milestone v1.1 archived & complete
+stopped_at: Milestone v1.1 complete
+last_updated: "2026-10-23T17:35:00.000Z"
+state_head: 94ff1a6
 progress:
   total_phases: 4
   completed_phases: 4
@@ -17,10 +17,10 @@ progress:
 
 ## Active Context
 
-- **Milestone**: `v1.1 — Live Distribution & Hardening`
-- **Current Phase**: `Milestone Audit`
-- **Phase Status**: `Milestone v1.1 Audit Passed (14/14 requirements satisfied, 106/106 tests passing)`
-- **Last Command Run**: `/gsd-audit-milestone`
+- **Milestone**: None (Milestone `v1.1` archived)
+- **Current Phase**: None
+- **Phase Status**: Milestone `v1.1` complete and archived. Tag `v1.1` ready.
+- **Last Command Run**: `/gsd-complete-milestone`
 
 ---
 
@@ -37,36 +37,19 @@ progress:
 
 ---
 
-## Completed Phase Traceability
+## Shipped Milestones
 
-- **Phase 1 Requirements (Satisfied)**:
-  - `LOCK-01`: Atomic file write with `.tmp` and cross-process lockfile mutex.
-  - `LOCK-02`: High-concurrency stress test suite verifying zero data corruption or unhandled lock contention.
-- **Phase 2 Requirements (Satisfied)**:
-  - `LIVE-01`: Real HTTP fetch dispatch for `DiscordAdapter` using incoming webhook URLs with `?wait=true`.
-  - `LIVE-02`: Live XRPC / AT Protocol dispatch for `BlueskyAdapter` using session auth and record creation.
-  - `LIVE-03`: Live Reddit API dispatch for `RedditAdapter` with OAuth2 password grant and self-post/comment endpoints.
-  - `LIVE-04`: Live Twitter/X API v2 dispatch for `TwitterAdapter` with pure Node.js crypto OAuth 1.0a signatures.
-  - `LIVE-05`: Live Graph API v19.0 dispatch for `FacebookAdapter` with URL-encoded payload.
-  - `LIVE-06`: Comprehensive resilience covering offline drops, timeouts, 401, 429, and 500 across all 5 adapters.
-- **Phase 3 Requirements (Satisfied)**:
-  - `ROT-01`: Granular per-platform cooldown overrides (e.g., 720h Reddit megathread) and independent daily post limits.
-  - `ROT-02`: Priority-weighted link distribution (1-100) and fair round-robin rotation avoiding link starvation.
-  - `ROT-03`: Twitter 23-character fixed `t.co` URL length budgeting preventing premature message truncation.
-- **Phase 4 Requirements (Satisfied)**:
-  - `PROD-01`: Multi-stage Dockerfile, .dockerignore, and docker-compose.yml for containerized daemon operation with unprivileged user and volume mounts.
-  - `PROD-02`: PM2 ecosystem.config.cjs and systemd unit service file for 24/7 supervised execution with memory ceilings and sandboxing.
-  - `PROD-03`: Updated INSTALL.md and README.md with comprehensive containerized and process-managed deployment guides.
-- **Test Suite**: 106 tests passing across 8 test files.
+- **v1.1 (Live Distribution & Hardening)**: 14 requirements satisfied, 106 tests passing, real network dispatches, file locking mutex, granular scheduling, Twitter URL budgeting, Docker/PM2/systemd packaging.
+- **v1.0 (Baseline Architecture)**: Initial architecture, core engine, FTC disclosures, tone engine, CLI wizard.
 
 ---
 
 ## Next Steps
 
-Milestone v1.1 audit has passed (14/14 requirements satisfied). Ready to archive and complete milestone via `/gsd-complete-milestone`.
+Run `/gsd-new-milestone` to start the next milestone cycle (e.g., v1.2 / v2.0).
 
 ## Session
 
-**Last session:** 2026-10-23T17:30:00.000Z
-**Stopped at:** Milestone v1.1 audit passed
-**Resume file:** .planning/v1.1-MILESTONE-AUDIT.md
+**Last session:** 2026-10-23T17:35:00.000Z
+**Stopped at:** Milestone v1.1 complete
+**Resume file:** .planning/milestones/v1.1-ROADMAP.md
