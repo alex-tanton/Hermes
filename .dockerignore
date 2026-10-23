@@ -1,0 +1,27 @@
+# Dependency & build outputs
+node_modules
+dist
+
+# Version control & tooling
+.git
+.husky
+.planning
+
+# Runtime data & secrets
+.data
+logs
+*.log
+.env
+.env.*
+
+# Testing & development
+tests
+vitest.config.ts
+.eslintrc.json
+.prettierrc
+.prettierignore
+commitlint.config.js
+
+# OS metadata
+.DS_Store
+Thumbs.db

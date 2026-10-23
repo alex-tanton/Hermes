@@ -1,0 +1,27 @@
+[Unit]
+Description=Referral-Repeater Autonomous Daemon
+Documentation=https://github.com/alex-tanton/Referral-Repeater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=referral-repeater
+Group=referral-repeater
+WorkingDirectory=/opt/referral-repeater
+ExecStart=/usr/bin/node /opt/referral-repeater/dist/cli/index.js daemon
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=referral-repeater
+
+# Security sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/referral-repeater/.data /opt/referral-repeater/logs
+ReadOnlyPaths=/opt/referral-repeater/config.yaml
+
+[Install]
+WantedBy=multi-user.target
