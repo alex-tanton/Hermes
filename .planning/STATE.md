@@ -2,14 +2,14 @@
 gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Live Distribution & Hardening
-status: Phase 3 complete
-stopped_at: Phase 3 complete
-last_updated: "2026-10-23T17:10:00.000Z"
+status: Phase 4 planned
+stopped_at: Phase 4 planned
+last_updated: "2026-10-23T17:15:00.000Z"
 state_head: c4718f2
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
+  total_plans: 8
   completed_plans: 6
 ---
 
@@ -18,9 +18,9 @@ progress:
 ## Active Context
 
 - **Milestone**: `v1.1 — Live Distribution & Hardening`
-- **Current Phase**: `Phase 3: Advanced Scheduling & Rotation`
-- **Phase Status**: `Phase 3 Complete (ROT-01, ROT-02, ROT-03 fully implemented and verified)`
-- **Last Command Run**: `/gsd-execute-phase 3`
+- **Current Phase**: `Phase 4: Production Daemon Packaging`
+- **Phase Status**: `Phase 4 Planned (04-01-PLAN.md, 04-02-PLAN.md, 04-RESEARCH.md, 04-VALIDATION.md ready)`
+- **Last Command Run**: `/gsd-plan-phase 4`
 
 ---
 
@@ -30,10 +30,9 @@ progress:
 - **Zero-DB**: Storage remains self-contained JSON and file-backed (`.data/history.json`, `logs/`).
 - **Module System**: TypeScript 5.7+ with strict NodeNext ESM imports (`.js` extension suffix).
 - **Concurrency & Locking**: Cross-process atomic locking via `proper-lockfile` (10s stale, 5s timeout cap) and atomic temp-file rename protecting `.data/history.json`.
-- **Zero New Dependencies for Phase 2/3**: Native Node.js `fetch` (Node >= 18) and built-in `node:crypto`.
-- **Per-Platform Scheduling**: Optional `cooldownHours` and `maxPostsPerDay` on platform configs override global defaults without breaking backward compatibility.
-- **Fair Rotation**: Order eligible links by priority (descending, default 50) and then last post time (ascending, oldest/never posted first).
-- **Twitter Character Budget**: Budget URLs at 23 characters (`t.co` standard) when calculating tweet character constraints.
+- **Zero New Dependencies for Phase 2/3/4**: Native Node.js `fetch` (Node >= 18) and built-in `node:crypto`. Docker, PM2, and systemd run existing built outputs.
+- **Containerization**: Multi-stage build (`node:20-alpine`) with unprivileged `USER node` and persistent volume mounts for `config.yaml`, `.data/`, and `logs/`.
+- **Process Supervision**: PM2 configuration (`ecosystem.config.cjs`) with `max_memory_restart: '300M'` and Linux systemd unit (`referral-repeater.service`).
 - **Quality Gates**: All commits pass Husky hooks (`lint`, `format:check`, `test`, `commitlint`).
 
 ---
@@ -54,16 +53,21 @@ progress:
   - `ROT-01`: Granular per-platform cooldown overrides (e.g., 720h Reddit megathread) and independent daily post limits.
   - `ROT-02`: Priority-weighted link distribution (1-100) and fair round-robin rotation avoiding link starvation.
   - `ROT-03`: Twitter 23-character fixed `t.co` URL length budgeting preventing premature message truncation.
+- **Phase 4 Requirements (Planned)**:
+  - `PROD-01`: Multi-stage Dockerfile, .dockerignore, and docker-compose.yml for containerized daemon operation.
+  - `PROD-02`: PM2 ecosystem.config.cjs and systemd unit service file for 24/7 supervised execution.
+  - `PROD-03`: Updated INSTALL.md and README.md with production deployment instructions.
 - **Test Suite**: 100 tests passing across 7 test files.
 
 ---
 
 ## Next Steps
 
-Phase 3 is complete. Next action is verification via `/gsd-verify-work 3` or planning Phase 4 (`/gsd-plan-phase 4`).
+Phase 4 planning is complete. Ready to execute Phase 4 via `/gsd-execute-phase 4`.
 
 ## Session
 
-**Last session:** 2026-10-23T17:10:00.000Z
-**Stopped at:** Phase 3 complete
-**Resume file:** .planning/phases/03-advanced-scheduling-rotation/03-VALIDATION.md
+**Last session:** 2026-10-23T17:15:00.000Z
+**Stopped at:** Phase 4 planned
+**Resume file:** .planning/phases/04-production-daemon-packaging/04-01-PLAN.md
+
