@@ -25,8 +25,8 @@ export class HistoryTracker {
   private staleMs: number;
   private entries: HistoryEntry[] = [];
   private lastMtimeMs = 0;
-  private activeReleases = new Set<() => Promise<void>>();
-  private cleanupRegistered = false;
+  private static activeReleases = new Set<() => Promise<void>>();
+  private static cleanupRegistered = false;
 
   constructor(customPath?: string, options?: HistoryTrackerOptions) {
     if (customPath) {
@@ -92,18 +92,18 @@ export class HistoryTracker {
    * Registers process signal listeners to cleanly unlock on termination
    */
   private registerExitHandlers(): void {
-    if (this.cleanupRegistered) return;
-    this.cleanupRegistered = true;
+    if (HistoryTracker.cleanupRegistered) return;
+    HistoryTracker.cleanupRegistered = true;
 
     const cleanup = () => {
-      for (const release of this.activeReleases) {
+      for (const release of HistoryTracker.activeReleases) {
         try {
           void release();
         } catch {
           // Ignore release errors during process exit
         }
       }
-      this.activeReleases.clear();
+      HistoryTracker.activeReleases.clear();
     };
 
     process.once('SIGINT', cleanup);
@@ -135,7 +135,7 @@ export class HistoryTracker {
       });
 
       const wrappedRelease = async () => {
-        this.activeReleases.delete(wrappedRelease);
+        HistoryTracker.activeReleases.delete(wrappedRelease);
         try {
           await releaseFn();
         } catch {
@@ -143,7 +143,7 @@ export class HistoryTracker {
         }
       };
 
-      this.activeReleases.add(wrappedRelease);
+      HistoryTracker.activeReleases.add(wrappedRelease);
       return wrappedRelease;
     } catch (err: unknown) {
       const errorObj = err as { code?: string; message?: string };
