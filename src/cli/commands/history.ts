@@ -7,12 +7,16 @@ export interface HistoryCommandOptions {
   clear?: boolean;
 }
 
-export function runHistoryCommand(options: HistoryCommandOptions): void {
+export async function runHistoryCommand(options: HistoryCommandOptions): Promise<void> {
   logger.banner('Posting History & Audit Trail');
 
   if (options.clear) {
-    historyTracker.clear();
-    console.log(chalk.green('✔ Posting history and deduplication cache cleared.\n'));
+    try {
+      await historyTracker.clear();
+      console.log(chalk.green('✔ Posting history and deduplication cache cleared.\n'));
+    } catch (err: unknown) {
+      logger.error('Failed to clear post history:', err);
+    }
     return;
   }
 

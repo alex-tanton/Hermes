@@ -1,6 +1,11 @@
 import { loadConfig } from '../../config/loader.js';
 import { ReferralRepeaterEngine } from '../../core/engine.js';
-import { PlatformType, ToneType } from '../../types/index.js';
+import {
+  HistoryStorageError,
+  LockTimeoutError,
+  PlatformType,
+  ToneType,
+} from '../../types/index.js';
 import { logger } from '../../core/logger.js';
 import chalk from 'chalk';
 
@@ -55,8 +60,14 @@ export async function runPostCommand(options: PostCommandOptions): Promise<void>
       console.log(`  ✖ Failed:                 ${chalk.red(failed)}`);
     }
     console.log('');
-  } catch (err) {
-    logger.error('Error executing post command:', err);
+  } catch (err: unknown) {
+    if (err instanceof LockTimeoutError) {
+      logger.error(`Lock timeout: ${err.message}`);
+    } else if (err instanceof HistoryStorageError) {
+      logger.error(`Storage error: ${err.message}`);
+    } else {
+      logger.error('Error executing post command:', err);
+    }
     process.exit(1);
   }
 }

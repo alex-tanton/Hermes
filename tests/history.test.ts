@@ -5,23 +5,37 @@ import { HistoryTracker } from '../src/core/history.js';
 
 describe('HistoryTracker', () => {
   const testHistoryPath = path.resolve(process.cwd(), '.data/test-history.json');
+  const testLockPath = `${testHistoryPath}.lock`;
   let tracker: HistoryTracker;
 
-  beforeEach(() => {
+  const cleanFiles = () => {
     if (fs.existsSync(testHistoryPath)) {
-      fs.unlinkSync(testHistoryPath);
+      try {
+        fs.unlinkSync(testHistoryPath);
+      } catch {
+        // Ignore unlink error
+      }
     }
+    if (fs.existsSync(testLockPath)) {
+      try {
+        fs.rmSync(testLockPath, { recursive: true, force: true });
+      } catch {
+        // Ignore lock dir removal error
+      }
+    }
+  };
+
+  beforeEach(() => {
+    cleanFiles();
     tracker = new HistoryTracker('.data/test-history.json');
   });
 
   afterEach(() => {
-    if (fs.existsSync(testHistoryPath)) {
-      fs.unlinkSync(testHistoryPath);
-    }
+    cleanFiles();
   });
 
-  it('records a new history entry and persists to file', () => {
-    const entry = tracker.record({
+  it('records a new history entry and persists to file', async () => {
+    const entry = await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'chase-sapphire',
@@ -37,8 +51,8 @@ describe('HistoryTracker', () => {
     expect(fs.existsSync(testHistoryPath)).toBe(true);
   });
 
-  it('identifies cooling down links within cooldown window', () => {
-    tracker.record({
+  it('identifies cooling down links within cooldown window', async () => {
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'chase-sapphire',
@@ -56,9 +70,9 @@ describe('HistoryTracker', () => {
     expect(tracker.isCoolingDown('capital-one-venture', 'reddit', 24)).toBe(false);
   });
 
-  it('recognizes expired cooldowns for older posts', () => {
+  it('recognizes expired cooldowns for older posts', async () => {
     const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-    tracker.record({
+    await tracker.record({
       timestamp: twoDaysAgo,
       platform: 'reddit',
       linkId: 'chase-sapphire',
@@ -72,8 +86,8 @@ describe('HistoryTracker', () => {
     expect(tracker.isCoolingDown('chase-sapphire', 'reddit', 24)).toBe(false);
   });
 
-  it('counts posts made in the last 24 hours correctly', () => {
-    tracker.record({
+  it('counts posts made in the last 24 hours correctly', async () => {
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'link-1',
@@ -83,7 +97,7 @@ describe('HistoryTracker', () => {
       status: 'simulated',
     });
 
-    tracker.record({
+    await tracker.record({
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       platform: 'discord',
       linkId: 'link-2',
@@ -94,7 +108,7 @@ describe('HistoryTracker', () => {
     });
 
     // Post from 3 days ago should not count
-    tracker.record({
+    await tracker.record({
       timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
       platform: 'twitter',
       linkId: 'link-3',
@@ -107,8 +121,8 @@ describe('HistoryTracker', () => {
     expect(tracker.getPostsInLast24Hours()).toBe(2);
   });
 
-  it('generates accurate statistics breakdown', () => {
-    tracker.record({
+  it('generates accurate statistics breakdown', async () => {
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'link-1',
@@ -118,7 +132,7 @@ describe('HistoryTracker', () => {
       status: 'simulated',
     });
 
-    tracker.record({
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'link-2',
@@ -128,7 +142,7 @@ describe('HistoryTracker', () => {
       status: 'success',
     });
 
-    tracker.record({
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'twitter',
       linkId: 'link-3',
@@ -148,8 +162,8 @@ describe('HistoryTracker', () => {
     expect(stats.byPlatform.twitter).toBe(1);
   });
 
-  it('clears history when requested', () => {
-    tracker.record({
+  it('clears history when requested', async () => {
+    await tracker.record({
       timestamp: new Date().toISOString(),
       platform: 'reddit',
       linkId: 'link-1',
@@ -160,7 +174,7 @@ describe('HistoryTracker', () => {
     });
 
     expect(tracker.getRecent().length).toBe(1);
-    tracker.clear();
+    await tracker.clear();
     expect(tracker.getRecent().length).toBe(0);
   });
 });

@@ -92,7 +92,7 @@ export class ReferralRepeaterEngine {
         const postResult = await adapter.post(payload, { dryRun: isDryRun });
 
         // Record to persistent audit history
-        this.history.record({
+        await this.history.record({
           timestamp: postResult.timestamp,
           platform: postResult.platform,
           linkId: link.id,

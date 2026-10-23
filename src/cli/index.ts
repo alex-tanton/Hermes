@@ -67,8 +67,8 @@ program
   .description('View recent posting activity and audit statistics')
   .option('-n, --limit <count>', 'Number of recent entries to show', '10')
   .option('--clear', 'Clear post history and cooldown tracking cache')
-  .action((options) => {
-    runHistoryCommand(options);
+  .action(async (options) => {
+    await runHistoryCommand(options);
   });
 
 program.parse(process.argv);

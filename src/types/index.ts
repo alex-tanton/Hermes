@@ -201,3 +201,43 @@ export interface ProgramDefinition {
   recommendedPlatforms: PlatformType[];
   defaultDisclosure: string;
 }
+
+/**
+ * Thrown when cross-process lock acquisition times out
+ */
+export class LockTimeoutError extends Error {
+  public readonly code = 'LOCK_TIMEOUT';
+  public readonly filePath: string;
+  public readonly timeoutMs: number;
+
+  constructor(filePath: string, timeoutMs: number, cause?: unknown) {
+    super(
+      `Failed to acquire file lock for "${filePath}" within ${timeoutMs}ms. ` +
+        `Another process (such as a background daemon or CLI instance) may be holding the lock. ` +
+        `Check running processes or remove stale lockfile directory "${filePath}.lock" if no other process is active.`,
+    );
+    this.name = 'LockTimeoutError';
+    this.filePath = filePath;
+    this.timeoutMs = timeoutMs;
+    if (cause) {
+      this.cause = cause;
+    }
+  }
+}
+
+/**
+ * Thrown when filesystem storage writes or atomic renames fail
+ */
+export class HistoryStorageError extends Error {
+  public readonly code = 'STORAGE_ERROR';
+  public readonly filePath: string;
+
+  constructor(message: string, filePath: string, cause?: unknown) {
+    super(message);
+    this.name = 'HistoryStorageError';
+    this.filePath = filePath;
+    if (cause) {
+      this.cause = cause;
+    }
+  }
+}
