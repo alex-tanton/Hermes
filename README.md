@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Language-TypeScript%205.7-blue.svg" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Runtime-Node.js%2018%2B-green.svg" alt="Node.js" />
-  <img src="https://img.shields.io/badge/Tests-Vitest%20(43%20passed)-brightgreen.svg" alt="Vitest Tests" />
+  <img src="https://img.shields.io/badge/Tests-Vitest%20(106%20passed)-brightgreen.svg" alt="Vitest Tests" />
   <img src="https://img.shields.io/badge/Code%20Style-Prettier-ff69b4.svg" alt="Prettier" />
   <img src="https://img.shields.io/badge/Linter-ESLint-4B32C3.svg" alt="ESLint" />
   <img src="https://img.shields.io/badge/Commits-Conventional%20Commits-FE5196.svg" alt="Commitlint" />
@@ -120,7 +120,11 @@ Referral-Repeater/
 │   │       ├── validate.ts     # Configuration & credentials inspector
 │   │       └── history.ts      # History and analytics viewer
 │   └── index.ts                # Public programmatic API exports
-├── tests/                      # Vitest test suite (43 unit tests)
+├── tests/                      # Vitest test suite (106 unit & integration tests)
+├── Dockerfile                  # Multi-stage production container image definition
+├── docker-compose.yml          # Containerized background daemon with persistent volumes
+├── ecosystem.config.cjs        # PM2 process manager configuration with memory guard
+├── referral-repeater.service   # Hardened Linux systemd background service unit
 ├── config.example.yaml         # Fully documented example configuration
 ├── REFERRAL_LINKS.md           # Raw input referral links and bonus details
 ├── INSTALL.md                  # Comprehensive setup and operating system guide
@@ -174,6 +178,20 @@ Starts the continuous background daemon with anti-bot jitter and cooldown protec
 ```bash
 npm run daemon
 ```
+
+### 6. Production Hosting (Docker / PM2 / Systemd)
+
+Run unattended 24/7 in an isolated container or supervised daemon:
+
+```bash
+# Launch containerized daemon with persistent volumes
+docker compose up -d
+
+# Inspect live daemon logs
+docker compose logs -f referral-repeater
+```
+
+For PM2 process supervision or systemd service setup, see the complete [Installation & Deployment Guide](INSTALL.md#6-autonomous-background-execution--production-hosting).
 
 ---
 

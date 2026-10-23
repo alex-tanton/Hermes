@@ -13,13 +13,15 @@ This document provides complete, step-by-step instructions for installing, confi
    - [Option B: Manual Configuration (`config.yaml`)](#option-b-manual-configuration-configyaml)
 4. [Validating Your Setup](#4-validating-your-setup)
 5. [Testing Safe Dry-Run Posts](#5-testing-safe-dry-run-posts)
-6. [Autonomous Background Execution](#6-autonomous-background-execution)
-   - [Using the Built-in Daemon](#using-the-built-in-daemon)
-   - [Using PM2 Process Manager (Recommended for 24/7)](#using-pm2-process-manager-recommended-for-247)
-   - [Using Windows Task Scheduler](#using-windows-task-scheduler)
-   - [Using Linux Systemd Service](#using-linux-systemd-service)
-7. [Platform Credentials Guide](#7-platform-credentials-guide)
-8. [Troubleshooting & FAQ](#8-troubleshooting--faq)
+6. [Autonomous Background Execution & Production Hosting](#6-autonomous-background-execution--production-hosting)
+   - [Option A: Docker & Docker Compose (Recommended for Containers)](#option-a-docker--docker-compose-recommended-for-containers)
+   - [Option B: PM2 Process Manager (Recommended for Node Servers)](#option-b-pm2-process-manager-recommended-for-node-servers)
+   - [Option C: Linux Systemd Service](#option-c-linux-systemd-service)
+   - [Option D: Windows Task Scheduler](#option-d-windows-task-scheduler)
+   - [Option E: Built-in Terminal Daemon](#option-e-built-in-terminal-daemon)
+7. [State Persistence & Backup Best Practices](#7-state-persistence--backup-best-practices)
+8. [Platform Credentials Guide](#8-platform-credentials-guide)
+9. [Troubleshooting & FAQ](#9-troubleshooting--faq)
 
 ---
 
@@ -176,11 +178,167 @@ npm run post -- --force
 
 ---
 
-## 6. Autonomous Background Execution
+## 6. Autonomous Background Execution & Production Hosting
 
-### Using the Built-in Daemon
+Referral-Repeater is designed to operate unattended 24/7. Choose the deployment method that fits your environment:
 
-To run Referral-Repeater continuously in the background on your machine:
+### Option A: Docker & Docker Compose (Recommended for Containers)
+
+Docker provides an isolated, unprivileged container environment with zero local Node.js dependency management. The container builds with a multi-stage Dockerfile (`node:20-alpine`) running under the non-root `node` user and utilizes Docker's built-in `init` system for clean PID 1 signal forwarding.
+
+#### 1. Quickstart
+
+Ensure you have your `config.yaml` created and validated, then start the container in detached mode:
+
+```bash
+docker compose up -d
+```
+
+#### 2. Volume Mounts & Architecture
+
+The `docker-compose.yml` mounts host files and folders directly to preserve state across container recreations:
+
+- `./config.yaml:/app/config.yaml:ro` — Read-only bind mount for your configuration settings.
+- `./.data:/app/.data` — Persistent volume storing `.data/history.json` (audit trail, link cooldowns, and lockfiles).
+- `./logs:/app/logs` — Persistent volume for runtime application log files.
+- `.env` — Optional secrets file automatically mapped if present.
+
+#### 3. Monitoring & Inspecting Logs
+
+Follow live output from the daemon:
+
+```bash
+docker compose logs -f referral-repeater
+```
+
+Container logs are automatically capped at `10m` with a 3-file rotation limit to prevent disk exhaustion.
+
+#### 4. Updating the Container
+
+To upgrade to the latest version with zero state loss:
+
+```bash
+# Pull new git updates or Dockerfile modifications
+git pull
+
+# Rebuild and relaunch the container
+docker compose build --pull
+docker compose up -d
+```
+
+#### 5. Stopping and Restarting
+
+```bash
+# Restart the service
+docker compose restart
+
+# Gracefully stop the daemon
+docker compose down
+```
+
+---
+
+### Option B: PM2 Process Manager (Recommended for Node Servers)
+
+For dedicated Linux VPS instances, macOS home servers, or Raspberry Pis with Node.js installed, PM2 offers rock-solid process supervision, automatic reboot persistence, and memory threshold restarts.
+
+Referral-Repeater includes a pre-configured `ecosystem.config.cjs` ready for production:
+
+```bash
+# 1. Install PM2 globally
+npm install -g pm2
+
+# 2. Build the latest TypeScript code
+npm run build
+
+# 3. Start the daemon using the bundled ecosystem configuration
+pm2 start ecosystem.config.cjs
+
+# 4. Save running state and configure startup script for system reboots
+pm2 save
+pm2 startup
+```
+
+#### Managing the PM2 Process
+
+```bash
+# Live dashboard and memory inspection
+pm2 monit
+
+# Tail application logs (combines output and error streams)
+pm2 logs referral-repeater
+
+# Restart after modifying config.yaml
+pm2 restart referral-repeater
+
+# Stop the daemon
+pm2 stop referral-repeater
+```
+
+_Note: `ecosystem.config.cjs` is configured with `max_memory_restart: '300M'` to proactively restart the daemon if memory consumption exceeds 300MB._
+
+---
+
+### Option C: Linux Systemd Service
+
+For native Linux system administration without third-party process managers, Referral-Repeater includes a hardened systemd service unit template (`referral-repeater.service`).
+
+#### Step-by-Step Setup
+
+1. **Create an unprivileged system user**:
+
+   ```bash
+   sudo useradd -r -s /bin/false referral-repeater
+   ```
+
+2. **Prepare the installation directory**:
+
+   ```bash
+   sudo mkdir -p /opt/referral-repeater
+   sudo cp -r dist package*.json node_modules config.yaml /opt/referral-repeater/
+   sudo mkdir -p /opt/referral-repeater/.data /opt/referral-repeater/logs
+   sudo chown -R referral-repeater:referral-repeater /opt/referral-repeater
+   ```
+
+3. **Install the service unit**:
+
+   ```bash
+   sudo cp referral-repeater.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   ```
+
+4. **Enable and start on boot**:
+
+   ```bash
+   sudo systemctl enable --now referral-repeater
+   ```
+
+5. **Inspect status and view journal logs**:
+   ```bash
+   sudo systemctl status referral-repeater
+   sudo journalctl -u referral-repeater -f
+   ```
+
+The service unit enforces strict systemd sandboxing (`NoNewPrivileges=true`, `ProtectSystem=strict`, and explicit `ReadWritePaths` for `.data` and `logs`).
+
+---
+
+### Option D: Windows Task Scheduler
+
+1. Open **Task Scheduler** in Windows (`taskschd.msc`).
+2. Select **Create Basic Task**.
+3. Name: `ReferralRepeater`.
+4. Trigger: **When the computer starts** or **When I log on**.
+5. Action: **Start a program**:
+   - Program/script: `node.exe` (or full path, e.g., `C:\Program Files\nodejs\node.exe`)
+   - Arguments: `dist\cli\index.js daemon`
+   - Start in: `C:\path\to\Referral-Repeater`
+
+---
+
+### Option E: Built-in Terminal Daemon
+
+For local development or foreground testing, run the daemon directly in your active terminal:
 
 ```bash
 npm run daemon
@@ -191,71 +349,34 @@ The daemon will:
 1. Initialize the cron schedule from `config.yaml`.
 2. Apply randomized anti-bot jitter delays.
 3. Automatically execute the distribution cycle on schedule.
-4. Enforce daily post caps and per-link cooldowns to protect your accounts from spam penalties.
-
-### Using PM2 Process Manager (Recommended for 24/7)
-
-For continuous operation on home servers, Raspberry Pis, or VPS instances:
-
-```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start daemon under PM2 supervision
-pm2 start dist/cli/index.js --name "referral-repeater" -- daemon
-
-# View logs
-pm2 logs referral-repeater
-
-# Save configuration to restart automatically on server reboot
-pm2 save
-pm2 startup
-```
-
-### Using Windows Task Scheduler
-
-1. Open **Task Scheduler** in Windows.
-2. Select **Create Basic Task**.
-3. Name: `ReferralRepeater`.
-4. Trigger: Daily or at system startup.
-5. Action: **Start a program**:
-   - Program/script: `node` (or path to `node.exe`)
-   - Arguments: `dist/cli/index.js daemon`
-   - Start in: `C:\path\to\Referral-Repeater`
-
-### Using Linux Systemd Service
-
-Create `/etc/systemd/system/referral-repeater.service`:
-
-```ini
-[Unit]
-Description=Referral-Repeater Daemon
-After=network.target
-
-[Service]
-Type=simple
-User=yourusername
-WorkingDirectory=/home/yourusername/Referral-Repeater
-ExecStart=/usr/bin/node dist/cli/index.js daemon
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable referral-repeater
-sudo systemctl start referral-repeater
-```
+4. Enforce daily post caps and per-link cooldowns to protect your accounts.
 
 ---
 
-## 7. Platform Credentials Guide
+## 7. State Persistence & Backup Best Practices
+
+Referral-Repeater follows a zero-database architecture, storing all persistent state in lightweight, auditable JSON and rotating log files:
+
+### Data Architecture
+
+- **`.data/history.json`**: Primary ledger containing full distribution history, last-posted timestamps, FTC disclosure records, and per-link cooldown caches.
+- **Cross-Process Mutex**: Writes are protected by `proper-lockfile` and atomic temporary file renames (`.data/history.json.tmp.*`), ensuring zero data corruption during concurrent operations or process restarts.
+- **`logs/referral-repeater.log`**: Detailed runtime log recording cycle executions, link selections, network responses, and simulation results.
+
+### Recommended Backup Strategy
+
+To preserve your link rotation memory and avoid repeating recently shared links:
+
+```bash
+# Create an ad-hoc backup of posting history
+cp .data/history.json .data/history.backup.$(date +%Y%m%d).json
+```
+
+In Docker environments, the host `./.data` directory is permanently mapped, ensuring backups can be taken directly from the host filesystem without entering the container.
+
+---
+
+## 8. Platform Credentials Guide
 
 ### Reddit
 
@@ -289,7 +410,7 @@ sudo systemctl start referral-repeater
 
 ---
 
-## 8. Troubleshooting & FAQ
+## 9. Troubleshooting & FAQ
 
 ### Q: Why are no posts showing up on forums?
 
