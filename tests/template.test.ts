@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TemplateEngine } from '../src/templates/engine.js';
+import { TemplateEngine, calculateTwitterLength } from '../src/templates/engine.js';
 import { ReferralLink, PersonalTouchConfig } from '../src/types/index.js';
 
 describe('TemplateEngine', () => {
@@ -68,7 +68,7 @@ describe('TemplateEngine', () => {
     expect(payload.formattedContent).not.toContain('FTC Referral Disclosure');
   });
 
-  it('enforces Twitter 280-character limit strictly', () => {
+  it('enforces Twitter 280-character limit strictly using t.co 23-char URL budgeting', () => {
     const payload = engine.render({
       platform: 'twitter',
       referralLink: mockLink,
@@ -76,11 +76,32 @@ describe('TemplateEngine', () => {
       tone: 'deal_alert',
     });
 
-    expect(payload.formattedContent.length).toBeLessThanOrEqual(280);
+    expect(calculateTwitterLength(payload.formattedContent)).toBeLessThanOrEqual(280);
     expect(payload.formattedContent).toContain(mockLink.url);
   });
 
-  it('enforces Bluesky 300-character limit strictly', () => {
+  it('does not prematurely truncate primary text when Twitter referral URL is very long (100+ chars)', () => {
+    const longUrlLink: ReferralLink = {
+      ...mockLink,
+      url: 'https://www.americanexpress.com/en-us/credit-cards/referral/prospect/personal/abcdef1234567890abcdef1234567890?CORID=abcdef&GENP=true',
+    };
+
+    const payload = engine.render({
+      platform: 'twitter',
+      referralLink: longUrlLink,
+      personalTouch: mockPersonalTouch,
+      tone: 'informative',
+    });
+
+    // The primary title is over 70 chars long: "[Review & Bonus] Chase Sapphire Preferred® — Current Welcome Offer & Value Breakdown"
+    // With 23 chars for URL, it should NOT be truncated to 10 chars.
+    expect(payload.formattedContent).toContain(
+      '[Review & Bonus] Chase Sapphire Preferred® — Current Welcome Offer & Value Breakdown',
+    );
+    expect(calculateTwitterLength(payload.formattedContent)).toBeLessThanOrEqual(280);
+  });
+
+  it('enforces Bluesky 300-character limit strictly without applying Twitter 23-char rule', () => {
     const payload = engine.render({
       platform: 'bluesky',
       referralLink: mockLink,

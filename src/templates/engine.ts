@@ -14,6 +14,13 @@ export interface RenderOptions {
   tone?: ToneType;
 }
 
+/**
+ * Calculates effective Twitter character length where all URLs count as fixed 23 characters (t.co standard)
+ */
+export function calculateTwitterLength(text: string): number {
+  return text.replace(/https?:\/\/[^\s]+/g, 'x'.repeat(23)).length;
+}
+
 export class TemplateEngine {
   /**
    * Generates a tailored PostPayload for a given platform and referral link
@@ -155,13 +162,14 @@ export class TemplateEngine {
 
     switch (platform) {
       case 'twitter': {
-        // Twitter limit: 280 chars
+        // Twitter limit: 280 chars, URLs count as fixed 23 chars (t.co standard)
         return this.fitToLength({
           primaryText: title,
           url,
           disclosure: disclosure ? ' #ad' : '',
           tags: tags.slice(0, 2).join(' '),
           maxLength: 280,
+          urlLengthWeight: 23,
         });
       }
 
@@ -219,16 +227,21 @@ export class TemplateEngine {
     disclosure: string;
     tags: string;
     maxLength: number;
+    urlLengthWeight?: number;
   }): string {
-    const { primaryText, url, disclosure, tags, maxLength } = params;
-    const suffix = `\n${url}${disclosure} ${tags}`.trim();
-    const availableForText = maxLength - suffix.length - 4; // safety buffer
+    const { primaryText, url, disclosure, tags, maxLength, urlLengthWeight } = params;
+    const effectiveUrlLength = urlLengthWeight !== undefined ? urlLengthWeight : url.length;
+    const nonUrlSuffix = `${disclosure} ${tags}`.trim();
+    // newline (1) + effectiveUrlLength + optional space/text
+    const suffixBudget = 1 + effectiveUrlLength + (nonUrlSuffix ? 1 + nonUrlSuffix.length : 0);
+    const availableForText = maxLength - suffixBudget - 4; // safety buffer
 
     let fittedText = primaryText;
     if (fittedText.length > availableForText) {
       fittedText = fittedText.substring(0, Math.max(10, availableForText)).trim() + '...';
     }
 
+    const suffix = `\n${url}${disclosure} ${tags}`.trim();
     return `${fittedText}\n${suffix}`.trim();
   }
 }

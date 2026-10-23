@@ -217,13 +217,15 @@ schedule:
   cron: '15 */6 * * *' # Standard 5-field cron expression
   jitterMinutes: 20 # Random delay up to 20 minutes to avoid robotic timing
   maxPostsPerDay: 12 # Daily cap across all platforms
-  linkCooldownHours: 24 # Do not repost same card to same platform within 24h
+  linkCooldownHours: 24 # Global fallback cooldown per link/platform
 
-# Platform toggles and credentials
+# Platform toggles, credentials, and optional per-platform rate limits
 platforms:
   reddit:
     enabled: true
     dryRun: true
+    cooldownHours: 720 # Per-platform override: 30-day cooldown for monthly megathread rules
+    maxPostsPerDay: 1 # Per-platform override: limit Reddit to 1 post per day
     credentials:
       clientId: '${REDDIT_CLIENT_ID}'
       clientSecret: '${REDDIT_CLIENT_SECRET}'
@@ -239,6 +241,8 @@ platforms:
   discord:
     enabled: true
     dryRun: true
+    cooldownHours: 12 # Per-platform override: 12-hour turnaround for active deal channels
+    maxPostsPerDay: 6 # Per-platform override: up to 6 posts/day
     credentials:
       webhookUrl: '${DISCORD_WEBHOOK_URL}'
     targets:
@@ -270,6 +274,7 @@ referralLinks:
     bonusSummary: 'Earn cash back welcome bonus after qualifying purchases.'
     personalAnecdote: 'My go-to daily driver card! 1.5% base plus 3% on dining adds up fast.'
     tags: ['chase', 'cashback', 'no-annual-fee']
+    priority: 85 # Priority (1-100, default 50). High priority links are picked first.
 ```
 
 ---
@@ -307,11 +312,14 @@ programRegistry.register({
 
 ---
 
-## Safety & Compliance
+## Anti-Spam Cooldowns, Rotation & Compliance
 
 1. **Dry-Run by Default**: Network calls to live social platforms are prevented unless `dryRun: false` and the CLI flag `--live` are explicitly passed.
-2. **Anti-Spam Cooldowns**: Enforces `linkCooldownHours` per platform and a hard ceiling of `maxPostsPerDay` to protect user accounts from automated bot bans.
-3. **FTC Referral Disclosure**: In accordance with FTC guidelines (16 CFR Part 255), all generated posts automatically append transparent referral disclosures when `includeFtcDisclosure: true`.
+2. **Granular Per-Platform Cooldowns**: Supports platform-specific `cooldownHours` overrides (e.g., 720h / 30-day cooldown for Reddit monthly megathreads vs. 12h for Discord deal channels), falling back to `schedule.linkCooldownHours`.
+3. **Independent Per-Platform Daily Caps**: Platforms can specify `maxPostsPerDay` limits. If Reddit reaches its daily limit, other platforms continue operating seamlessly without halting the entire cycle.
+4. **Fair Round-Robin & Priority Rotation**: Referral links support an optional `priority` (1-100, default 50). Links with higher priority are selected first; links with equal priority rotate in a strict least-recently-posted round-robin manner to prevent link starvation.
+5. **Twitter/X `t.co` URL Budgeting**: Any URL in a tweet is budgeted at fixed 23 characters (the standard Twitter `t.co` shortener length). Long referral URLs (80-120+ characters) do not prematurely truncate the message title or description.
+6. **FTC Referral Disclosure**: In accordance with FTC guidelines (16 CFR Part 255), all generated posts automatically append transparent referral disclosures when `includeFtcDisclosure: true`.
 
 ---
 

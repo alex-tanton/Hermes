@@ -60,11 +60,15 @@ schedule:
 # Platform Configurations
 # ------------------------------------------------------------------------------
 # Toggle platforms on/off, set credentials, and define target destinations (subreddits, channels, groups).
+# You can optionally set per-platform `cooldownHours` and `maxPostsPerDay` to override global defaults.
 platforms:
   # Reddit Adapter (API & Megathread poster)
   reddit:
     enabled: true
     dryRun: true
+    # Per-platform overrides (e.g. 30-day megathread rules, max 1 post/day)
+    cooldownHours: 720
+    maxPostsPerDay: 1
     credentials:
       clientId: '${REDDIT_CLIENT_ID}'
       clientSecret: '${REDDIT_CLIENT_SECRET}'
@@ -113,6 +117,9 @@ platforms:
   discord:
     enabled: true
     dryRun: true
+    # Per-platform overrides (e.g. 12-hour fast turnaround, max 6 posts/day)
+    cooldownHours: 12
+    maxPostsPerDay: 6
     credentials:
       webhookUrl: '${DISCORD_WEBHOOK_URL}'
       botToken: '${DISCORD_BOT_TOKEN}'
@@ -138,6 +145,10 @@ platforms:
 # Referral Links & Programs
 # ------------------------------------------------------------------------------
 # Supports credit cards, online shopping cashback, banking, dining, and custom referral programs.
+#
+# Fair Rotation & Priority:
+# - `priority` (1-100, default 50): Higher numbers are posted first when multiple links are eligible.
+# - Fair Round-Robin: Links with equal priority are rotated based on least-recently-posted timestamp.
 referralLinks:
   # --- Credit Card Programs ---
   - id: 'chase-freedom-unlimited'
@@ -150,6 +161,7 @@ referralLinks:
     personalAnecdote: 'My go-to daily driver card! The 1.5% base on everything plus 3% on dining adds up so fast. Paired with Sapphire, these points transfer directly to Hyatt.'
     tags: ['chase', 'freedom', 'cashback', 'not-annual-fee']
     targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
+    priority: 80
 
   - id: 'chase-sapphire'
     enabled: true
@@ -161,6 +173,7 @@ referralLinks:
     personalAnecdote: 'The holy grail of travel cards! Used my signup points for a 5-night all-inclusive stay in Cancun. Transferring to airlines and hotels gets incredible value.'
     tags: ['chase', 'sapphire', 'travel', 'points']
     targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
+    priority: 95
 
   - id: 'capital-one-venture-one'
     enabled: true
