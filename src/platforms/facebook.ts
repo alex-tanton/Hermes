@@ -44,33 +44,76 @@ export class FacebookAdapter extends BasePlatformAdapter {
     }
 
     const credValidation = this.validateCredentials();
-    if (!credValidation.valid) {
+    if (!credValidation.valid || !this.config.credentials?.accessToken) {
       return this.createErrorResult(
         payload,
-        `Cannot post live to Facebook: ${credValidation.reason}`,
+        `Cannot post live to Facebook: ${credValidation.reason || 'Missing access token'}`,
         destination,
       );
     }
 
+    const endpoint =
+      target.id === 'feed' || target.type === 'feed' ? 'me/feed' : `${target.id}/feed`;
+    const targetUrl = `https://graph.facebook.com/v19.0/${endpoint}`;
+
     try {
-      const livePostId = `fb_${Date.now()}`;
+      const params = new URLSearchParams();
+      params.append('message', payload.formattedContent);
+      if (payload.referralLink?.url) {
+        params.append('link', payload.referralLink.url);
+      }
+      params.append('access_token', this.config.credentials.accessToken);
+
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        let errorMessage = '';
+        try {
+          const errJson = (await response.json()) as {
+            error?: { message?: string; type?: string; code?: number };
+          };
+          errorMessage = errJson.error?.message || `Error code ${errJson.error?.code}`;
+        } catch {
+          errorMessage = await response.text().catch(() => `HTTP ${response.status}`);
+        }
+
+        return this.createErrorResult(
+          payload,
+          `Facebook Graph API failed [HTTP ${response.status}]: ${errorMessage}`,
+          destination,
+        );
+      }
+
+      const data = (await response.json()) as { id?: string };
+      const postId = data.id || `fb_${Date.now()}`;
+      const postUrl = `https://www.facebook.com/${postId}`;
+
       return {
         success: true,
         platform: this.name,
         linkId: payload.referralLink.id,
-        postId: livePostId,
-        postUrl: `https://www.facebook.com/groups/${target.id}/posts/${livePostId}`,
+        postId,
+        postUrl,
         simulated: false,
         timestamp: new Date().toISOString(),
         messagePreview: payload.formattedContent,
         targetDestination: destination,
       };
     } catch (err) {
-      return this.createErrorResult(
-        payload,
-        `Facebook Graph API request failed: ${err instanceof Error ? err.message : String(err)}`,
-        destination,
-      );
+      const isTimeout =
+        err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+      const errorMsg = isTimeout
+        ? 'Facebook Graph API request timed out after 10000ms'
+        : `Facebook Graph API request failed: ${err instanceof Error ? err.message : String(err)}`;
+
+      return this.createErrorResult(payload, errorMsg, destination);
     }
   }
 

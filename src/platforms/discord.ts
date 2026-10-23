@@ -55,25 +55,72 @@ export class DiscordAdapter extends BasePlatformAdapter {
       );
     }
 
+    const webhookUrl = this.config.credentials?.webhookUrl;
+    if (!webhookUrl) {
+      return this.createErrorResult(
+        payload,
+        'Cannot post live to Discord: webhookUrl is required for webhook dispatch',
+        destination,
+      );
+    }
+
     try {
-      const msgId = `discord_${Date.now()}`;
+      const url = new URL(webhookUrl);
+      url.searchParams.set('wait', 'true');
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: payload.formattedContent,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        let errorDetails = '';
+        try {
+          const errJson = (await response.json()) as { message?: string; code?: number };
+          errorDetails = errJson.message || `Code ${errJson.code}`;
+        } catch {
+          errorDetails = await response.text().catch(() => 'Unknown error');
+        }
+
+        return this.createErrorResult(
+          payload,
+          `Discord webhook failed [HTTP ${response.status}]: ${errorDetails}`,
+          destination,
+        );
+      }
+
+      const data = (await response.json()) as { id?: string; channel_id?: string };
+      const msgId = data.id || `discord_${Date.now()}`;
+      const channelId = data.channel_id;
+      const postUrl = channelId
+        ? `https://discord.com/channels/@me/${channelId}/${msgId}`
+        : `https://discord.com/channels/@me/${msgId}`;
+
       return {
         success: true,
         platform: this.name,
         linkId: payload.referralLink.id,
-        postId: msgId,
-        postUrl: `https://discord.com/channels/@me/${msgId}`,
+        postId: String(msgId),
+        postUrl,
         simulated: false,
         timestamp: new Date().toISOString(),
         messagePreview: payload.formattedContent,
         targetDestination: destination,
       };
     } catch (err) {
-      return this.createErrorResult(
-        payload,
-        `Discord webhook execution failed: ${err instanceof Error ? err.message : String(err)}`,
-        destination,
-      );
+      const isTimeout =
+        err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+      const errorMsg = isTimeout
+        ? 'Discord webhook timed out after 10000ms'
+        : `Discord webhook execution failed: ${err instanceof Error ? err.message : String(err)}`;
+
+      return this.createErrorResult(payload, errorMsg, destination);
     }
   }
 
