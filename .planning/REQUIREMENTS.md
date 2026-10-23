@@ -35,23 +35,23 @@
 ## Active Milestone Requirements (v1.1 — Live Distribution & Hardening)
 
 ### Phase 1: Concurrency & State Reliability
-- [ ] **LOCK-01**: Implement atomic file locking (or lockfile mutex) for `.data/history.json` to prevent race conditions during concurrent daemon and CLI runs.
-- [ ] **LOCK-02**: Add automated unit tests verifying concurrent access resilience and graceful handling of lock timeouts.
+- [x] **LOCK-01**: Implement atomic file locking (or lockfile mutex) for `.data/history.json` to prevent race conditions during concurrent daemon and CLI runs.
+- [x] **LOCK-02**: Add automated unit tests verifying concurrent access resilience and graceful handling of lock timeouts.
 
 ### Phase 2: Live Platform Network Dispatches
-- [ ] **LIVE-01**: Implement real HTTP `fetch` dispatch for `DiscordAdapter` using incoming webhook URLs.
-- [ ] **LIVE-02**: Implement live XRPC / AT Protocol dispatch for `BlueskyAdapter` using handle authentication and app passwords.
-- [ ] **LIVE-03**: Implement live Reddit API dispatch for `RedditAdapter` with OAuth2 authentication for posts and comments.
-- [ ] **LIVE-04**: Implement live Twitter/X API v2 dispatch for `TwitterAdapter` with OAuth signatures.
-- [ ] **LIVE-05**: Implement live Graph API dispatch for `FacebookAdapter`.
-- [ ] **LIVE-06**: Verify that all live network calls fail safely back to structured error results when offline or given invalid tokens, without uncaught exceptions.
+- [x] **LIVE-01**: Implement real HTTP `fetch` dispatch for `DiscordAdapter` using incoming webhook URLs.
+- [x] **LIVE-02**: Implement live XRPC / AT Protocol dispatch for `BlueskyAdapter` using handle authentication and app passwords.
+- [x] **LIVE-03**: Implement live Reddit API dispatch for `RedditAdapter` with OAuth2 authentication for posts and comments.
+- [x] **LIVE-04**: Implement live Twitter/X API v2 dispatch for `TwitterAdapter` with OAuth signatures.
+- [x] **LIVE-05**: Implement live Graph API dispatch for `FacebookAdapter`.
+- [x] **LIVE-06**: Verify that all live network calls fail safely back to structured error results when offline or given invalid tokens, without uncaught exceptions.
 
 ### Phase 3: Advanced Scheduling & Rotation
-- [ ] **ROT-01**: Support per-platform cooldown and daily cap overrides in `config.yaml` (e.g. Reddit 720h megathread cooldown vs Discord 12h cooldown).
-- [ ] **ROT-02**: Replace first-match link selection with fair round-robin or priority-weighted rotation across eligible links.
-- [ ] **ROT-03**: Fix URL length budget on Twitter to treat links as fixed 23 characters (`t.co` standard) to prevent unnecessary body truncation.
+- [x] **ROT-01**: Support per-platform cooldown and daily cap overrides in `config.yaml` (e.g. Reddit 720h megathread cooldown vs Discord 12h cooldown).
+- [x] **ROT-02**: Replace first-match link selection with fair round-robin or priority-weighted rotation across eligible links.
+- [x] **ROT-03**: Fix URL length budget on Twitter to treat links as fixed 23 characters (`t.co` standard) to prevent unnecessary body truncation.
 
 ### Phase 4: Production Daemon Packaging
-- [ ] **PROD-01**: Create lightweight multi-stage `Dockerfile` and `docker-compose.yml` for containerized background execution.
-- [ ] **PROD-02**: Provide ready-to-use PM2 `ecosystem.config.cjs` and Linux `systemd` unit files for unattended 24/7 server hosting.
-- [ ] **PROD-03**: Update `INSTALL.md` with containerized and process-managed deployment instructions.
+- [x] **PROD-01**: Create lightweight multi-stage `Dockerfile` and `docker-compose.yml` for containerized background execution.
+- [x] **PROD-02**: Provide ready-to-use PM2 `ecosystem.config.cjs` and Linux `systemd` unit files for unattended 24/7 server hosting.
+- [x] **PROD-03**: Update `INSTALL.md` with containerized and process-managed deployment instructions.
