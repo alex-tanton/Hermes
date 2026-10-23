@@ -65,6 +65,17 @@ export class ReferralRepeaterEngine {
       const adapter = platformRegistry.getAdapter(platform);
       if (!adapter) continue;
 
+      const platformConfig = this.config.platforms[platform];
+      if (!options.force && platformConfig?.maxPostsPerDay !== undefined) {
+        const platformDailyPosts = this.history.getPostsInLast24Hours(platform);
+        if (platformDailyPosts >= platformConfig.maxPostsPerDay) {
+          logger.warn(
+            `Platform [${platform}] reached daily post limit (${platformDailyPosts}/${platformConfig.maxPostsPerDay}). Skipping platform for this cycle.`,
+          );
+          continue;
+        }
+      }
+
       // Find eligible links for this platform
       const eligibleLinks = this.getEligibleLinks(platform, options);
 
@@ -130,12 +141,14 @@ export class ReferralRepeaterEngine {
   }
 
   /**
-   * Filters enabled links targeting this platform, sorted by least-recently-posted
+   * Filters enabled links targeting this platform, sorted by priority (descending)
+   * and least-recently-posted timestamp (ascending / fair round-robin).
    */
   public getEligibleLinks(platform: PlatformType, options: DispatchOptions = {}): ReferralLink[] {
-    const cooldownHours = this.config.schedule.linkCooldownHours;
+    const platformConfig = this.config.platforms[platform];
+    const cooldownHours = platformConfig?.cooldownHours ?? this.config.schedule.linkCooldownHours;
 
-    return this.config.referralLinks
+    const eligible = this.config.referralLinks
       .filter((link) => link.enabled)
       .filter((link) => {
         if (options.filterCategory && link.category !== options.filterCategory) {
@@ -149,6 +162,17 @@ export class ReferralRepeaterEngine {
         }
         return true;
       });
+
+    return eligible.sort((a, b) => {
+      const priorityA = a.priority ?? 50;
+      const priorityB = b.priority ?? 50;
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA; // higher priority first
+      }
+      const lastA = this.history.getLastPostTime(a.id, platform) ?? 0;
+      const lastB = this.history.getLastPostTime(b.id, platform) ?? 0;
+      return lastA - lastB; // least recently posted (or never posted) first -> fair rotation
+    });
   }
 
   private getNextTone(): ToneType {

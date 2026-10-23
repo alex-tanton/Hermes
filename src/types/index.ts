@@ -22,6 +22,7 @@ export interface ReferralLink {
   personalAnecdote?: string;
   tags?: string[];
   targetPlatforms?: PlatformType[];
+  priority?: number;
 }
 
 /**
@@ -72,6 +73,8 @@ export interface DiscordTarget {
 export interface RedditConfig {
   enabled: boolean;
   dryRun?: boolean;
+  cooldownHours?: number;
+  maxPostsPerDay?: number;
   credentials?: {
     clientId?: string;
     clientSecret?: string;
@@ -85,6 +88,8 @@ export interface RedditConfig {
 export interface FacebookConfig {
   enabled: boolean;
   dryRun?: boolean;
+  cooldownHours?: number;
+  maxPostsPerDay?: number;
   credentials?: {
     accessToken?: string;
     appId?: string;
@@ -96,6 +101,8 @@ export interface FacebookConfig {
 export interface BlueskyConfig {
   enabled: boolean;
   dryRun?: boolean;
+  cooldownHours?: number;
+  maxPostsPerDay?: number;
   credentials?: {
     service?: string;
     identifier?: string;
@@ -107,6 +114,8 @@ export interface BlueskyConfig {
 export interface DiscordConfig {
   enabled: boolean;
   dryRun?: boolean;
+  cooldownHours?: number;
+  maxPostsPerDay?: number;
   credentials?: {
     webhookUrl?: string;
     botToken?: string;
@@ -117,6 +126,8 @@ export interface DiscordConfig {
 export interface TwitterConfig {
   enabled: boolean;
   dryRun?: boolean;
+  cooldownHours?: number;
+  maxPostsPerDay?: number;
   credentials?: {
     apiKey?: string;
     apiSecret?: string;

@@ -23,6 +23,7 @@ export const ReferralLinkSchema = z.object({
   personalAnecdote: z.string().optional(),
   tags: z.array(z.string()).default([]),
   targetPlatforms: z.array(PlatformTypeSchema).optional(),
+  priority: z.number().min(1).max(100).default(50).optional(),
 });
 
 export const PersonalTouchSchema = z.object({
@@ -54,6 +55,8 @@ export const RedditTargetSchema = z.object({
 export const RedditConfigSchema = z.object({
   enabled: z.boolean().default(false),
   dryRun: z.boolean().optional(),
+  cooldownHours: z.number().min(1).optional(),
+  maxPostsPerDay: z.number().min(1).max(100).optional(),
   credentials: z
     .object({
       clientId: z.string().optional(),
@@ -78,6 +81,8 @@ export const FacebookTargetSchema = z.object({
 export const FacebookConfigSchema = z.object({
   enabled: z.boolean().default(false),
   dryRun: z.boolean().optional(),
+  cooldownHours: z.number().min(1).optional(),
+  maxPostsPerDay: z.number().min(1).max(100).optional(),
   credentials: z
     .object({
       accessToken: z.string().optional(),
@@ -91,6 +96,8 @@ export const FacebookConfigSchema = z.object({
 export const BlueskyConfigSchema = z.object({
   enabled: z.boolean().default(false),
   dryRun: z.boolean().optional(),
+  cooldownHours: z.number().min(1).optional(),
+  maxPostsPerDay: z.number().min(1).max(100).optional(),
   credentials: z
     .object({
       service: z.string().default('https://bsky.social'),
@@ -109,6 +116,8 @@ export const DiscordTargetSchema = z.object({
 export const DiscordConfigSchema = z.object({
   enabled: z.boolean().default(false),
   dryRun: z.boolean().optional(),
+  cooldownHours: z.number().min(1).optional(),
+  maxPostsPerDay: z.number().min(1).max(100).optional(),
   credentials: z
     .object({
       webhookUrl: z.string().optional(),
@@ -121,6 +130,8 @@ export const DiscordConfigSchema = z.object({
 export const TwitterConfigSchema = z.object({
   enabled: z.boolean().default(false),
   dryRun: z.boolean().optional(),
+  cooldownHours: z.number().min(1).optional(),
+  maxPostsPerDay: z.number().min(1).max(100).optional(),
   credentials: z
     .object({
       apiKey: z.string().optional(),

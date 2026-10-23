@@ -138,6 +138,43 @@ describe('HistoryTracker', () => {
       });
 
       expect(tracker.getPostsInLast24Hours()).toBe(2);
+      expect(tracker.getPostsInLast24Hours('reddit')).toBe(1);
+      expect(tracker.getPostsInLast24Hours('discord')).toBe(1);
+      expect(tracker.getPostsInLast24Hours('twitter')).toBe(0);
+    });
+
+    it('returns the most recent post time for a link and platform via getLastPostTime', async () => {
+      expect(tracker.getLastPostTime('link-alpha', 'reddit')).toBeUndefined();
+
+      const earlierTime = Date.now() - 3600000;
+      await tracker.record({
+        timestamp: new Date(earlierTime).toISOString(),
+        platform: 'reddit',
+        linkId: 'link-alpha',
+        linkName: 'Alpha Card',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      const recentTime = Date.now() - 60000;
+      await tracker.record({
+        timestamp: new Date(recentTime).toISOString(),
+        platform: 'discord',
+        linkId: 'link-alpha',
+        linkName: 'Alpha Card',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      const lastDiscord = tracker.getLastPostTime('link-alpha', 'discord');
+      const lastReddit = tracker.getLastPostTime('link-alpha', 'reddit');
+      const lastOverall = tracker.getLastPostTime('link-alpha');
+
+      expect(lastDiscord).toBe(recentTime);
+      expect(lastReddit).toBe(earlierTime);
+      expect(lastOverall).toBe(recentTime);
     });
 
     it('generates accurate statistics breakdown', async () => {

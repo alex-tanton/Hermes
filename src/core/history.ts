@@ -316,14 +316,29 @@ export class HistoryTracker {
   }
 
   /**
-   * Returns how many posts have been made in the last 24 hours
+   * Returns how many posts have been made in the last 24 hours, optionally filtered by platform
    */
-  public getPostsInLast24Hours(): number {
+  public getPostsInLast24Hours(platform?: PlatformType): number {
     this.syncFromDiskIfModified();
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     return this.entries.filter(
-      (e) => new Date(e.timestamp).getTime() >= oneDayAgo && e.status !== 'failed',
+      (e) =>
+        (!platform || e.platform === platform) &&
+        new Date(e.timestamp).getTime() >= oneDayAgo &&
+        e.status !== 'failed',
     ).length;
+  }
+
+  /**
+   * Returns the epoch millisecond timestamp of the most recent post for a link,
+   * optionally filtered by platform, or undefined if never posted.
+   */
+  public getLastPostTime(linkId: string, platform?: PlatformType): number | undefined {
+    this.syncFromDiskIfModified();
+    const entry = this.entries.find(
+      (e) => e.linkId === linkId && (!platform || e.platform === platform) && e.status !== 'failed',
+    );
+    return entry ? new Date(entry.timestamp).getTime() : undefined;
   }
 
   public getRecent(limit = 20): HistoryEntry[] {
