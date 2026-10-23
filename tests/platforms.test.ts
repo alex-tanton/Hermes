@@ -143,6 +143,176 @@ describe('Platform Adapters', () => {
       expect(result.simulated).toBe(false);
       expect(result.error).toContain('Cannot post live to Reddit');
     });
+
+    it('authenticates via OAuth2 and submits live self-post', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: 'reddit_access_token_123' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            json: {
+              errors: [],
+              data: {
+                id: 't3_sub123',
+                name: 't3_sub123',
+                url: 'https://www.reddit.com/r/churning/comments/t3_sub123',
+              },
+            },
+          }),
+        });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            clientId: 'r_cid',
+            clientSecret: 'r_csec',
+            username: 'test_churner',
+            password: 'secret_password',
+          },
+          targets: [{ name: 'churning', type: 'post' }],
+        },
+      });
+
+      const result = await adapter.post(samplePayload, { dryRun: false });
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(result.postId).toBe('t3_sub123');
+      expect(result.postUrl).toBe('https://www.reddit.com/r/churning/comments/t3_sub123');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // Check auth call
+      expect(fetchMock.mock.calls[0][0]).toBe('https://www.reddit.com/api/v1/access_token');
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toContain('Basic ');
+      // Check submit call
+      expect(fetchMock.mock.calls[1][0]).toBe('https://oauth.reddit.com/api/submit');
+      expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe(
+        'Bearer reddit_access_token_123',
+      );
+    });
+
+    it('submits live comment when target type is comment', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: 'reddit_comment_token' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            json: {
+              errors: [],
+              data: {
+                id: 't1_comment456',
+                name: 't1_comment456',
+              },
+            },
+          }),
+        });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            clientId: 'r_cid',
+            clientSecret: 'r_csec',
+            username: 'commenter',
+            password: 'pwd',
+          },
+          targets: [{ name: 't3_parent_thread', type: 'comment' }],
+        },
+      });
+
+      const result = await adapter.post(samplePayload, { dryRun: false });
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(result.postId).toBe('t1_comment456');
+
+      expect(fetchMock.mock.calls[1][0]).toBe('https://oauth.reddit.com/api/comment');
+    });
+
+    it('handles Reddit in-body errors (json.errors) gracefully', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({ access_token: 'valid_token' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              json: {
+                errors: [['RATELIMIT', 'You are doing that too much', 'ratelimit']],
+              },
+            }),
+          }),
+      );
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            clientId: 'cid',
+            clientSecret: 'csec',
+            username: 'usr',
+            password: 'pwd',
+          },
+        },
+      });
+
+      const result = await adapter.post(samplePayload, { dryRun: false });
+      expect(result.success).toBe(false);
+      expect(result.simulated).toBe(false);
+      expect(result.error).toContain(
+        'Reddit API error: RATELIMIT: You are doing that too much: ratelimit',
+      );
+    });
+
+    it('handles Reddit OAuth2 authentication rejection', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          text: async () => '{"error": "invalid_grant"}',
+        }),
+      );
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            clientId: 'cid',
+            clientSecret: 'csec',
+            username: 'usr',
+            password: 'bad_password',
+          },
+        },
+      });
+
+      const result = await adapter.post(samplePayload, { dryRun: false });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Reddit authentication failed [HTTP 401]');
+    });
   });
 
   describe('FacebookAdapter', () => {
@@ -563,5 +733,280 @@ describe('Platform Adapters', () => {
       expect(result.simulated).toBe(true);
       expect(result.targetDestination).toContain('Timeline');
     });
+
+    it('dispatches live tweet with OAuth 1.0a header to Twitter API v2', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          data: {
+            id: '1460323737035677698',
+            text: samplePayload.formattedContent,
+          },
+        }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            apiKey: 'consumer_key_123',
+            apiSecret: 'consumer_secret_456',
+            accessToken: 'oauth_token_789',
+            accessSecret: 'oauth_token_secret_012',
+          },
+        },
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(result.postId).toBe('1460323737035677698');
+      expect(result.postUrl).toBe('https://x.com/i/web/status/1460323737035677698');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.twitter.com/2/tweets');
+      expect(init.method).toBe('POST');
+      expect(init.headers.Authorization).toMatch(/^OAuth /);
+      expect(init.headers.Authorization).toContain('oauth_consumer_key="consumer_key_123"');
+      expect(init.headers.Authorization).toContain('oauth_token="oauth_token_789"');
+      const body = JSON.parse(init.body);
+      expect(body.text).toBe(samplePayload.formattedContent);
+    });
+
+    it('handles Twitter API error (e.g. 401 Unauthorized or 429 Rate Limit) gracefully', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 429,
+          json: async () => ({
+            title: 'Too Many Requests',
+            detail: 'Too Many Requests',
+            type: 'about:blank',
+            status: 429,
+          }),
+        }),
+      );
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            apiKey: 'k',
+            apiSecret: 's',
+            accessToken: 't',
+            accessSecret: 'as',
+          },
+        },
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+      expect(result.success).toBe(false);
+      expect(result.simulated).toBe(false);
+      expect(result.error).toContain('Twitter API v2 failed [HTTP 429]: Too Many Requests');
+    });
+
+    it('handles Twitter API network timeout without throwing', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockRejectedValue(
+            new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+          ),
+      );
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            apiKey: 'k',
+            apiSecret: 's',
+            accessToken: 't',
+            accessSecret: 'as',
+          },
+        },
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('timed out after 10000ms');
+    });
+  });
+
+  describe('Platform Adapters - Cross-Platform Resilience (LIVE-06)', () => {
+    const adapters = [
+      {
+        name: 'reddit',
+        create: () =>
+          new RedditAdapter({
+            config: {
+              enabled: true,
+              dryRun: false,
+              credentials: {
+                clientId: 'cid',
+                clientSecret: 'csec',
+                username: 'usr',
+                password: 'pwd',
+              },
+            },
+          }),
+      },
+      {
+        name: 'facebook',
+        create: () =>
+          new FacebookAdapter({
+            config: {
+              enabled: true,
+              dryRun: false,
+              credentials: { accessToken: 'token' },
+            },
+          }),
+      },
+      {
+        name: 'bluesky',
+        create: () =>
+          new BlueskyAdapter({
+            config: {
+              enabled: true,
+              dryRun: false,
+              credentials: { identifier: 'id', password: 'pwd' },
+            },
+          }),
+      },
+      {
+        name: 'discord',
+        create: () =>
+          new DiscordAdapter({
+            config: {
+              enabled: true,
+              dryRun: false,
+              credentials: { webhookUrl: 'https://discord.com/api/webhooks/test/hook' },
+            },
+          }),
+      },
+      {
+        name: 'twitter',
+        create: () =>
+          new TwitterAdapter({
+            config: {
+              enabled: true,
+              dryRun: false,
+              credentials: {
+                apiKey: 'k',
+                apiSecret: 's',
+                accessToken: 't',
+                accessSecret: 'as',
+              },
+            },
+          }),
+      },
+    ];
+
+    for (const { name, create } of adapters) {
+      describe(`Resilience for ${name}`, () => {
+        it('Test A (Network Offline / DNS Failure): handles TypeError without throwing', async () => {
+          vi.stubGlobal(
+            'fetch',
+            vi.fn().mockRejectedValue(new TypeError('fetch failed: ENOTFOUND')),
+          );
+          const adapter = create();
+          const result = await adapter.post(samplePayload, { dryRun: false });
+
+          expect(result.success).toBe(false);
+          expect(result.simulated).toBe(false);
+          expect(result.error).toBeDefined();
+          expect(typeof result.error).toBe('string');
+        });
+
+        it('Test B (Request Timeout / Socket Hangup): handles TimeoutError without throwing', async () => {
+          vi.stubGlobal(
+            'fetch',
+            vi
+              .fn()
+              .mockRejectedValue(
+                new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+              ),
+          );
+          const adapter = create();
+          const result = await adapter.post(samplePayload, { dryRun: false });
+
+          expect(result.success).toBe(false);
+          expect(result.simulated).toBe(false);
+          expect(result.error).toMatch(/timed out/i);
+        });
+
+        it('Test C (Rate Limiting HTTP 429): handles HTTP 429 status without throwing', async () => {
+          vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+              ok: false,
+              status: 429,
+              json: async () => ({ error: 'Rate limit exceeded', retryAfter: 60 }),
+              text: async () => 'Rate limit exceeded',
+            }),
+          );
+          const adapter = create();
+          const result = await adapter.post(samplePayload, { dryRun: false });
+
+          expect(result.success).toBe(false);
+          expect(result.simulated).toBe(false);
+          expect(result.error).toContain('429');
+        });
+
+        it('Test D (Unauthorized HTTP 401): handles HTTP 401 without throwing', async () => {
+          vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+              ok: false,
+              status: 401,
+              json: async () => ({ error: 'Unauthorized token or credentials' }),
+              text: async () => 'Unauthorized',
+            }),
+          );
+          const adapter = create();
+          const result = await adapter.post(samplePayload, { dryRun: false });
+
+          expect(result.success).toBe(false);
+          expect(result.simulated).toBe(false);
+          expect(result.error).toContain('401');
+        });
+
+        it('Test E (Malformed / Non-JSON 500 HTML Response): handles non-JSON body without throwing', async () => {
+          vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+              ok: false,
+              status: 500,
+              json: async () => {
+                throw new SyntaxError('Unexpected token < in JSON at position 0');
+              },
+              text: async () => '<html><body>500 Internal Server Error</body></html>',
+            }),
+          );
+          const adapter = create();
+          const result = await adapter.post(samplePayload, { dryRun: false });
+
+          expect(result.success).toBe(false);
+          expect(result.simulated).toBe(false);
+          expect(result.error).toBeDefined();
+        });
+      });
+    }
   });
 });
