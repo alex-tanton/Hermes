@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  hermes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hermes:latest
+    container_name: hermes
+    restart: unless-stopped
+    init: true
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./.data:/app/.data
+      - ./logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

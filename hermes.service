@@ -1,0 +1,27 @@
+[Unit]
+Description=Hermes Autonomous Daemon
+Documentation=https://github.com/alex-tanton/Hermes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/opt/hermes
+ExecStart=/usr/bin/node /opt/hermes/dist/cli/index.js daemon
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes
+
+# Security sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hermes/.data /opt/hermes/logs
+ReadOnlyPaths=/opt/hermes/config.yaml
+
+[Install]
+WantedBy=multi-user.target
