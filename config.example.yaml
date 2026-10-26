@@ -1,80 +1,33 @@
-# ==============================================================================
-# Hermes Configuration
-# ==============================================================================
-# This configuration file controls the autonomous multi-platform posting engine.
-# Copy this file to `config.yaml` to configure your own personal links and preferences.
-#
-# Environment variables can be referenced using ${ENV_VAR_NAME} syntax.
-# ==============================================================================
+# Hermes Configuration Template
+# For detailed configuration instructions, see docs/CONFIGURATION.md
 
-# Global safety switch. When true, NO LIVE NETWORK POSTS are made.
-# The tool will format messages, simulate platform responses, and log to audit logs.
-# Set to false only when you are ready to make real posts with real credentials.
 dryRun: true
 
-# ------------------------------------------------------------------------------
-# Personal Touch & Tone Settings
-# ------------------------------------------------------------------------------
-# Your personal story and emotional appeal that differentiates your posts from spam.
-# The template engine automatically weaves these anecdotes and hooks into posts.
 personalTouch:
-  # The poster's name or alias shown in informal sign-offs
   authorName: 'Alex'
-
-  # Core philosophy / emotional hook (e.g. travel hacking, frugal family finance)
   philosophy: "I've funded unforgettable family vacations and maximized cashback on everyday groceries using smart card signups."
-
-  # Default anecdote used if a specific referral link doesn't define its own
   defaultAnecdote: "I've personally used these cards for years to travel for pennies on the dollar. Always happy to answer questions about approvals and reward redemption!"
-
-  # FTC Compliance & transparency disclosure
-  # When true, automatically appends compliance text: "(Referral disclosure: If you apply and get approved, we may both earn bonus rewards.)"
   includeFtcDisclosure: true
-
-  # Style variations to rotate between: "story", "informative", "deal_alert", "comparison"
   toneRotation:
     - 'story'
     - 'informative'
     - 'deal_alert'
 
-# ------------------------------------------------------------------------------
-# Autonomous Scheduler Settings
-# ------------------------------------------------------------------------------
-# Controls how the daemon operates automatically over time.
 schedule:
-  # Standard 5-field cron expression (minute hour day-of-month month day-of-week)
-  # Default: Every 6 hours at minute 15 ('15 */6 * * *')
   cron: '15 */6 * * *'
-
-  # Anti-bot jitter in minutes. Randomly delays posting by up to this many minutes
-  # so actions do not occur at the exact same robotic second.
   jitterMinutes: 20
-
-  # Maximum total posts across all platforms allowed in a 24-hour window
   maxPostsPerDay: 12
-
-  # Cooldown period in hours before the exact same referral link can be posted again to the same platform
   linkCooldownHours: 24
 
-# ------------------------------------------------------------------------------
-# Platform Configurations
-# ------------------------------------------------------------------------------
-# Toggle platforms on/off, set credentials, and define target destinations (subreddits, channels, groups).
-# You can optionally set per-platform `cooldownHours` and `maxPostsPerDay` to override global defaults.
 platforms:
-  # Reddit Adapter (Devvit Zero-Config or Legacy Script)
-  # Tip: Run `npx devvit login` in your terminal to authenticate in 1 click (no credentials needed)!
   reddit:
     enabled: true
     dryRun: true
-    # Per-platform overrides (e.g. 30-day megathread rules, max 1 post/day)
     cooldownHours: 720
     maxPostsPerDay: 1
-    # credentials are auto-detected from ~/.devvit/token!
     credentials:
       accessToken: '${REDDIT_ACCESS_TOKEN:-}'
       userAgent: 'node:hermes:v1.1.0'
-    # Target subreddits and posting strategies
     targets:
       - name: 'referralcodes'
         type: 'post'
@@ -85,7 +38,6 @@ platforms:
       - name: 'CreditCards'
         type: 'comment'
 
-  # Facebook Adapter (Pages, Groups, and Personal Feed)
   facebook:
     enabled: true
     dryRun: true
@@ -98,13 +50,12 @@ platforms:
         name: 'Credit Card & Travel Rewards Community'
         type: 'group'
 
-  # Bluesky / AT Protocol Adapter
   bluesky:
     enabled: true
     dryRun: true
     credentials:
       service: 'https://bsky.social'
-      identifier: '${BLUESKY_HANDLE}' # e.g. handle.bsky.social
+      identifier: '${BLUESKY_HANDLE}'
       password: '${BLUESKY_APP_PASSWORD}'
     tags:
       - '#CreditCards'
@@ -112,11 +63,9 @@ platforms:
       - '#PointsAndMiles'
       - '#Referral'
 
-  # Discord Webhook & Forum Adapter
   discord:
     enabled: true
     dryRun: true
-    # Per-platform overrides (e.g. 12-hour fast turnaround, max 6 posts/day)
     cooldownHours: 12
     maxPostsPerDay: 6
     credentials:
@@ -126,7 +75,6 @@ platforms:
       - channelName: 'deals-and-referrals'
         type: 'webhook'
 
-  # Twitter / X API v2 Adapter
   twitter:
     enabled: true
     dryRun: true
@@ -140,16 +88,7 @@ platforms:
       - '#BonusRewards'
       - '#ReferralBonus'
 
-# ------------------------------------------------------------------------------
-# Referral Links & Programs
-# ------------------------------------------------------------------------------
-# Supports credit cards, online shopping cashback, banking, dining, and custom referral programs.
-#
-# Fair Rotation & Priority:
-# - `priority` (1-100, default 50): Higher numbers are posted first when multiple links are eligible.
-# - Fair Round-Robin: Links with equal priority are rotated based on least-recently-posted timestamp.
 referralLinks:
-  # --- Credit Card Programs ---
   - id: 'chase-freedom-unlimited'
     enabled: true
     category: 'credit_card'
@@ -185,7 +124,6 @@ referralLinks:
     tags: ['capital-one', 'venture', 'no-annual-fee', 'travel-miles']
     targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
 
-  # --- Online Shopping & Cash Back Programs (Expansion) ---
   - id: 'rakuten-cashback'
     enabled: true
     category: 'shopping'
