@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import lockfile from 'proper-lockfile';
@@ -232,6 +232,38 @@ describe('HistoryTracker', () => {
       expect(tracker.getRecent().length).toBe(1);
       await tracker.clear();
       expect(tracker.getRecent().length).toBe(0);
+    });
+
+    it('releases lock when atomicSave fails during clear', async () => {
+      await tracker.record({
+        timestamp: new Date().toISOString(),
+        platform: 'reddit',
+        linkId: 'link-1',
+        linkName: 'Link 1',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      const mockError = new Error('Simulated atomicSave failure');
+      // @ts-expect-error - accessing private/protected method for testing
+      const atomicSaveSpy = vi.spyOn(tracker, 'atomicSave').mockRejectedValue(mockError);
+
+      await expect(tracker.clear()).rejects.toThrow('Simulated atomicSave failure');
+
+      atomicSaveSpy.mockRestore();
+
+      await tracker.record({
+        timestamp: new Date().toISOString(),
+        platform: 'twitter',
+        linkId: 'link-2',
+        linkName: 'Link 2',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      expect(tracker.getRecent().length).toBe(2);
     });
   });
 
