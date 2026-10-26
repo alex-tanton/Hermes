@@ -178,6 +178,21 @@ export class HermesEngine {
   public getEligibleLinks(platform: PlatformType, options: DispatchOptions = {}): ReferralLink[] {
     const platformConfig = this.config.platforms[platform];
     const cooldownHours = platformConfig?.cooldownHours ?? this.config.schedule.linkCooldownHours;
+    const cooldownMs = cooldownHours * 60 * 60 * 1000;
+    const now = Date.now();
+
+    // Cache the most recent post time for each link for this platform
+    const recentHistory = this.history.getRecent(10000);
+    const lastPostMap = new Map<string, number>();
+
+    // We only care about entries for the target platform that didn't fail
+    for (const entry of recentHistory) {
+      if (entry.platform === platform && entry.status !== 'failed') {
+        if (!lastPostMap.has(entry.linkId)) {
+          lastPostMap.set(entry.linkId, new Date(entry.timestamp).getTime());
+        }
+      }
+    }
 
     const eligible = this.config.referralLinks
       .filter((link) => link.enabled)
@@ -188,8 +203,11 @@ export class HermesEngine {
         if (link.targetPlatforms && !link.targetPlatforms.includes(platform)) {
           return false;
         }
-        if (!options.force && this.history.isCoolingDown(link.id, platform, cooldownHours)) {
-          return false;
+        if (!options.force) {
+          const lastPost = lastPostMap.get(link.id);
+          if (lastPost !== undefined && now - lastPost < cooldownMs) {
+            return false;
+          }
         }
         return true;
       });
@@ -200,8 +218,8 @@ export class HermesEngine {
       if (priorityA !== priorityB) {
         return priorityB - priorityA; // higher priority first
       }
-      const lastA = this.history.getLastPostTime(a.id, platform) ?? 0;
-      const lastB = this.history.getLastPostTime(b.id, platform) ?? 0;
+      const lastA = lastPostMap.get(a.id) ?? 0;
+      const lastB = lastPostMap.get(b.id) ?? 0;
       return lastA - lastB; // least recently posted (or never posted) first -> fair rotation
     });
   }
