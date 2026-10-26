@@ -194,14 +194,19 @@ export class HermesEngine {
         return true;
       });
 
+    const lastPostTimes = new Map<string, number>();
+    for (const link of eligible) {
+      lastPostTimes.set(link.id, this.history.getLastPostTime(link.id, platform) ?? 0);
+    }
+
     return eligible.sort((a, b) => {
       const priorityA = a.priority ?? 50;
       const priorityB = b.priority ?? 50;
       if (priorityA !== priorityB) {
         return priorityB - priorityA; // higher priority first
       }
-      const lastA = this.history.getLastPostTime(a.id, platform) ?? 0;
-      const lastB = this.history.getLastPostTime(b.id, platform) ?? 0;
+      const lastA = lastPostTimes.get(a.id) ?? 0;
+      const lastB = lastPostTimes.get(b.id) ?? 0;
       return lastA - lastB; // least recently posted (or never posted) first -> fair rotation
     });
   }
