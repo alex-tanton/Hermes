@@ -74,19 +74,8 @@ export class TemplateEngine {
   }
 
   private resolveTags(link: ReferralLink, defaultHashtags: string[]): string[] {
-    const combined = new Set<string>();
-
-    if (link.tags) {
-      for (const tag of link.tags) {
-        combined.add(tag.startsWith('#') ? tag : `#${tag}`);
-      }
-    }
-
-    for (const tag of defaultHashtags) {
-      combined.add(tag);
-    }
-
-    return Array.from(combined);
+    const linkTags = link.tags?.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`)) ?? [];
+    return Array.from(new Set([...linkTags, ...defaultHashtags]));
   }
 
   private buildTitle(link: ReferralLink, tone: ToneType): string {
