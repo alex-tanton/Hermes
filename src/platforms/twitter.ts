@@ -13,7 +13,9 @@ export class TwitterAdapter extends BasePlatformAdapter {
   constructor(options: TwitterAdapterOptions) {
     super(options);
     this.config = options.config;
-    if (this.config.dryRun !== undefined) {
+    if (options.dryRun !== undefined) {
+      this.dryRun = options.dryRun;
+    } else if (this.config.dryRun !== undefined) {
       this.dryRun = this.config.dryRun;
     }
   }

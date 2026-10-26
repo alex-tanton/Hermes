@@ -4,6 +4,7 @@ import { FacebookAdapter } from '../src/platforms/facebook.js';
 import { BlueskyAdapter } from '../src/platforms/bluesky.js';
 import { DiscordAdapter } from '../src/platforms/discord.js';
 import { TwitterAdapter } from '../src/platforms/twitter.js';
+import { PlatformRegistry } from '../src/platforms/registry.js';
 import { generateOAuth1Header, rfc3986Encode } from '../src/platforms/oauth1.js';
 import { PostPayload } from '../src/types/index.js';
 
@@ -906,6 +907,120 @@ describe('Platform Adapters', () => {
       );
       expect(result.success).toBe(false);
       expect(result.error).toContain('timed out after 10000ms');
+    });
+  });
+
+  describe('PlatformRegistry', () => {
+    it('should initialize enabled platform adapters', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize(
+        {
+          reddit: { enabled: true, dryRun: false },
+          facebook: { enabled: false, dryRun: false },
+          bluesky: { enabled: true, dryRun: false },
+        },
+        false,
+      );
+
+      const active = registry.getActivePlatforms();
+      expect(active).toContain('reddit');
+      expect(active).toContain('bluesky');
+      expect(active).not.toContain('facebook');
+
+      const redditAdapter = registry.getAdapter('reddit') as RedditAdapter;
+      expect(redditAdapter).toBeDefined();
+      expect(redditAdapter).toBeInstanceOf(RedditAdapter);
+
+      const blueskyAdapter = registry.getAdapter('bluesky') as BlueskyAdapter;
+      expect(blueskyAdapter).toBeDefined();
+      expect(blueskyAdapter).toBeInstanceOf(BlueskyAdapter);
+
+      expect(registry.getAdapter('facebook')).toBeUndefined();
+    });
+
+    it('should enforce global dry run if true', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize(
+        {
+          reddit: { enabled: true, dryRun: false }, // explicitly false
+          facebook: { enabled: true, dryRun: false }, // explicitly false
+        },
+        true, // global dry run is true
+      );
+
+      const redditAdapter = registry.getAdapter('reddit') as RedditAdapter;
+      expect(redditAdapter).toBeDefined();
+      expect(redditAdapter.isDryRun()).toBe(true);
+
+      const facebookAdapter = registry.getAdapter('facebook') as FacebookAdapter;
+      expect(facebookAdapter).toBeDefined();
+      expect(facebookAdapter.isDryRun()).toBe(true);
+    });
+
+    it('should use platform dry run if global dry run is false', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize(
+        {
+          reddit: { enabled: true, dryRun: false },
+          facebook: { enabled: true, dryRun: true },
+        },
+        false,
+      );
+
+      const redditAdapter = registry.getAdapter('reddit') as RedditAdapter;
+      expect(redditAdapter).toBeDefined();
+      expect(redditAdapter.isDryRun()).toBe(false);
+
+      const facebookAdapter = registry.getAdapter('facebook') as FacebookAdapter;
+      expect(facebookAdapter).toBeDefined();
+      expect(facebookAdapter.isDryRun()).toBe(true);
+    });
+
+    it('should default platform dry run to true if not specified and global is false', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize(
+        {
+          reddit: { enabled: true },
+        },
+        false,
+      );
+
+      const redditAdapter = registry.getAdapter('reddit') as RedditAdapter;
+      expect(redditAdapter).toBeDefined();
+      expect(redditAdapter.isDryRun()).toBe(true);
+    });
+
+    it('should clear existing adapters on initialize', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize({ reddit: { enabled: true } }, false);
+      expect(registry.getActivePlatforms()).toContain('reddit');
+
+      registry.initialize({ facebook: { enabled: true } }, false);
+      expect(registry.getActivePlatforms()).not.toContain('reddit');
+      expect(registry.getActivePlatforms()).toContain('facebook');
+    });
+
+    it('should return adapter by name, all adapters, and active platforms', () => {
+      const registry = new PlatformRegistry();
+      registry.initialize(
+        {
+          reddit: { enabled: true },
+          discord: { enabled: true },
+        },
+        false,
+      );
+
+      expect(registry.getAdapter('reddit')).toBeInstanceOf(RedditAdapter);
+      expect(registry.getAdapter('discord')).toBeInstanceOf(DiscordAdapter);
+      expect(registry.getAdapter('facebook')).toBeUndefined();
+
+      const all = registry.getAllAdapters();
+      expect(all.length).toBe(2);
+      expect(all.some((a) => a instanceof RedditAdapter)).toBe(true);
+      expect(all.some((a) => a instanceof DiscordAdapter)).toBe(true);
+
+      const active = registry.getActivePlatforms();
+      expect(active).toEqual(['reddit', 'discord']);
     });
   });
 
