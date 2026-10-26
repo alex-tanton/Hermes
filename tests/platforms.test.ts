@@ -4,8 +4,22 @@ import { FacebookAdapter } from '../src/platforms/facebook.js';
 import { BlueskyAdapter } from '../src/platforms/bluesky.js';
 import { DiscordAdapter } from '../src/platforms/discord.js';
 import { TwitterAdapter } from '../src/platforms/twitter.js';
+import { BasePlatformAdapter } from '../src/platforms/base.js';
 import { generateOAuth1Header, rfc3986Encode } from '../src/platforms/oauth1.js';
 import { PostPayload } from '../src/types/index.js';
+
+class MockBaseAdapter extends BasePlatformAdapter {
+  public readonly name = 'twitter'; // Use valid platform type
+  public validateCredentials() {
+    return { valid: true };
+  }
+  public async post() {
+    return { success: true } as any;
+  }
+  public async testExtractErrorMessage(res: Response) {
+    return this.extractErrorMessage(res);
+  }
+}
 
 describe('Platform Adapters', () => {
   afterEach(() => {
@@ -1068,5 +1082,103 @@ describe('Platform Adapters', () => {
         });
       });
     }
+  });
+
+  describe('BasePlatformAdapter - extractErrorMessage', () => {
+    let adapter: MockBaseAdapter;
+
+    beforeEach(() => {
+      adapter = new MockBaseAdapter();
+    });
+
+    it('extracts from data.message', async () => {
+      const res = {
+        json: async () => ({ message: 'Standard message error' }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Standard message error');
+    });
+
+    it('extracts from errObj.message', async () => {
+      const res = {
+        json: async () => ({ error: { message: 'Nested message error' } }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Nested message error');
+    });
+
+    it('extracts from data.detail', async () => {
+      const res = {
+        json: async () => ({ detail: 'Detail error' }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Detail error');
+    });
+
+    it('extracts from errObj.detail', async () => {
+      const res = {
+        json: async () => ({ error: { detail: 'Nested detail error' } }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Nested detail error');
+    });
+
+    it('extracts from data.error (string)', async () => {
+      const res = {
+        json: async () => ({ error: 'String error' }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('String error');
+    });
+
+    it('extracts from data.errors (array)', async () => {
+      const res = {
+        json: async () => ({
+          errors: [
+            { message: 'Error 1' },
+            { detail: 'Error 2' },
+            'Error 3',
+            { other: 'Error 4' }
+          ]
+        }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Error 1; Error 2; Error 3; {"other":"Error 4"}');
+    });
+
+    it('handles non-string returned message (stringifies object)', async () => {
+      const res = {
+        json: async () => ({ message: { code: 123, text: 'complex error' } }),
+        status: 400,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('{"code":123,"text":"complex error"}');
+    });
+
+    it('falls back to text() if json() throws', async () => {
+      const res = {
+        json: async () => { throw new Error('Invalid JSON'); },
+        text: async () => 'Plain text error response',
+        status: 500,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('Plain text error response');
+    });
+
+    it('falls back to HTTP status if both json() and text() fail/empty', async () => {
+      const res = {
+        json: async () => { throw new Error('Invalid JSON'); },
+        text: async () => '',
+        status: 503,
+      } as unknown as Response;
+      const msg = await adapter.testExtractErrorMessage(res);
+      expect(msg).toBe('HTTP 503');
+    });
   });
 });
