@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import lockfile from 'proper-lockfile';
@@ -143,6 +143,65 @@ describe('HistoryTracker', () => {
       expect(tracker.getPostsInLast24Hours('twitter')).toBe(0);
     });
 
+    it('respects the 24-hour boundary and excludes failed posts with mocked time', async () => {
+      vi.useFakeTimers();
+      try {
+        const now = new Date('2024-01-02T12:00:00Z').getTime();
+        vi.setSystemTime(now);
+
+        // 1. Post from exactly 24 hours ago (should be included, as >= oneDayAgo)
+        await tracker.record({
+          timestamp: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+          platform: 'reddit',
+          linkId: 'link-boundary',
+          linkName: 'Boundary Link',
+          category: 'credit_card',
+          simulated: true,
+          status: 'simulated',
+        });
+
+        // 2. Post from >24 hours ago (should be excluded)
+        await tracker.record({
+          timestamp: new Date(now - 24 * 60 * 60 * 1000 - 1).toISOString(),
+          platform: 'reddit',
+          linkId: 'link-old',
+          linkName: 'Old Link',
+          category: 'credit_card',
+          simulated: true,
+          status: 'simulated',
+        });
+
+        // 3. Post within 24 hours (should be included)
+        await tracker.record({
+          timestamp: new Date(now - 12 * 60 * 60 * 1000).toISOString(),
+          platform: 'reddit',
+          linkId: 'link-recent',
+          linkName: 'Recent Link',
+          category: 'credit_card',
+          simulated: true,
+          status: 'simulated',
+        });
+
+        // 4. Failed post within 24 hours (should be excluded)
+        await tracker.record({
+          timestamp: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+          platform: 'discord',
+          linkId: 'link-failed',
+          linkName: 'Failed Link',
+          category: 'credit_card',
+          simulated: false,
+          status: 'failed',
+          error: 'Rate limited',
+        });
+
+        expect(tracker.getPostsInLast24Hours()).toBe(2);
+        expect(tracker.getPostsInLast24Hours('reddit')).toBe(2);
+        expect(tracker.getPostsInLast24Hours('discord')).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('returns the most recent post time for a link and platform via getLastPostTime', async () => {
       expect(tracker.getLastPostTime('link-alpha', 'reddit')).toBeUndefined();
 
@@ -232,6 +291,38 @@ describe('HistoryTracker', () => {
       expect(tracker.getRecent().length).toBe(1);
       await tracker.clear();
       expect(tracker.getRecent().length).toBe(0);
+    });
+
+    it('releases lock when atomicSave fails during clear', async () => {
+      await tracker.record({
+        timestamp: new Date().toISOString(),
+        platform: 'reddit',
+        linkId: 'link-1',
+        linkName: 'Link 1',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      const mockError = new Error('Simulated atomicSave failure');
+      // @ts-expect-error - accessing private/protected method for testing
+      const atomicSaveSpy = vi.spyOn(tracker, 'atomicSave').mockRejectedValue(mockError);
+
+      await expect(tracker.clear()).rejects.toThrow('Simulated atomicSave failure');
+
+      atomicSaveSpy.mockRestore();
+
+      await tracker.record({
+        timestamp: new Date().toISOString(),
+        platform: 'twitter',
+        linkId: 'link-2',
+        linkName: 'Link 2',
+        category: 'credit_card',
+        simulated: true,
+        status: 'simulated',
+      });
+
+      expect(tracker.getRecent().length).toBe(2);
     });
   });
 
