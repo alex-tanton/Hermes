@@ -43,4 +43,11 @@ describe('ProgramRegistry & Extensibility', () => {
     expect(updated.title).toBe('Crypto Staking & Exchange Referrals');
     expect(updated.formatBonusSummary('20% fee rebate')).toBe('⚡ Crypto Offer: 20% fee rebate');
   });
+
+  it('lists all registered programs correctly', () => {
+    const programs = programRegistry.listAll();
+    expect(programs.length).toBeGreaterThanOrEqual(5); // default categories
+    expect(programs.some((p) => p.category === 'credit_card')).toBe(true);
+    expect(programs.some((p) => p.category === 'shopping')).toBe(true);
+  });
 });

@@ -54,9 +54,17 @@ export async function runInitWizard(): Promise<void> {
           value: 'reddit',
           checked: true,
         },
-        { name: 'Discord (Deals & referral channels via Webhook)', value: 'discord', checked: true },
+        {
+          name: 'Discord (Deals & referral channels via Webhook)',
+          value: 'discord',
+          checked: true,
+        },
         { name: 'Bluesky (AT Protocol microblogging)', value: 'bluesky', checked: true },
-        { name: 'Facebook (Groups & travel rewards communities)', value: 'facebook', checked: false },
+        {
+          name: 'Facebook (Groups & travel rewards communities)',
+          value: 'facebook',
+          checked: false,
+        },
         { name: 'Twitter / X (API v2 tweets)', value: 'twitter', checked: false },
       ],
     });
@@ -90,7 +98,9 @@ export async function runInitWizard(): Promise<void> {
     if (importDefaults) {
       referralLinks.push(...DEFAULT_CONFIG.referralLinks);
       console.log(
-        chalk.green(`\n✔ Loaded ${referralLinks.length} default referral cards and shopping links.`),
+        chalk.green(
+          `\n✔ Loaded ${referralLinks.length} default referral cards and shopping links.`,
+        ),
       );
     } else {
       let adding = true;
