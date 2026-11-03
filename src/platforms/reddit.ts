@@ -18,6 +18,9 @@ export interface RedditAdapterOptions extends AdapterOptions {
  * Attempts to retrieve an existing Devvit CLI OAuth token from ~/.devvit/token
  */
 export function getDevvitToken(): string | null {
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') {
+    return process.env.TEST_DEVVIT_TOKEN || null;
+  }
   try {
     const tokenPath = path.join(os.homedir(), '.devvit', 'token');
     if (fs.existsSync(tokenPath)) {
@@ -50,6 +53,9 @@ export class RedditAdapter extends BasePlatformAdapter {
     }
     if (process.env.REDDIT_ACCESS_TOKEN) {
       return process.env.REDDIT_ACCESS_TOKEN;
+    }
+    if (this.config.credentials?.clientId) {
+      return null;
     }
     return getDevvitToken();
   }

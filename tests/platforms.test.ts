@@ -4,6 +4,7 @@ import { FacebookAdapter } from '../src/platforms/facebook.js';
 import { BlueskyAdapter } from '../src/platforms/bluesky.js';
 import { DiscordAdapter } from '../src/platforms/discord.js';
 import { TwitterAdapter } from '../src/platforms/twitter.js';
+import { Scraper } from 'agent-twitter-client';
 import { BasePlatformAdapter } from '../src/platforms/base.js';
 import { PlatformRegistry } from '../src/platforms/registry.js';
 import { generateOAuth1Header, rfc3986Encode } from '../src/platforms/oauth1.js';
@@ -507,6 +508,162 @@ describe('Platform Adapters', () => {
       );
       expect(result.success).toBe(false);
       expect(result.error).toContain('timed out after 10000ms');
+    });
+
+    it('validates session cookie credentials (authToken and ct0)', () => {
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          credentials: { authToken: 'test-auth-token', ct0: 'test-ct0' },
+        },
+      });
+      const validation = adapter.validateCredentials();
+      expect(validation.valid).toBe(true);
+      expect(validation.reason).toContain('cookies');
+    });
+
+    it('validates account login credentials (username and password)', () => {
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          credentials: { username: 'testuser', password: 'testpassword' },
+        },
+      });
+      const validation = adapter.validateCredentials();
+      expect(validation.valid).toBe(true);
+      expect(validation.reason).toContain('account');
+    });
+
+    it('dispatches live tweet via Scraper using session cookies (no API v2 keys required)', async () => {
+      const mockSetCookies = vi.fn().mockResolvedValue(undefined);
+      const mockSendTweet = vi.fn().mockResolvedValue({
+        json: async () => ({
+          data: {
+            create_tweet: {
+              tweet_results: {
+                result: {
+                  rest_id: '1850000000000000001',
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      const mockScraper = {
+        setCookies: mockSetCookies,
+        sendTweet: mockSendTweet,
+      };
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            authToken: 'cookie_auth_token_123',
+            ct0: 'cookie_ct0_456',
+          },
+        },
+        scraper: mockScraper as unknown as Scraper,
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(result.postId).toBe('1850000000000000001');
+      expect(result.postUrl).toBe('https://x.com/i/web/status/1850000000000000001');
+
+      expect(mockSetCookies).toHaveBeenCalledTimes(1);
+      const cookiesPassed = mockSetCookies.mock.calls[0][0];
+      expect(cookiesPassed).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('auth_token=cookie_auth_token_123'),
+          expect.stringContaining('ct0=cookie_ct0_456'),
+        ]),
+      );
+      expect(mockSendTweet).toHaveBeenCalledWith(samplePayload.formattedContent);
+    });
+
+    it('dispatches live tweet via Scraper using account login credentials', async () => {
+      const mockLogin = vi.fn().mockResolvedValue(undefined);
+      const mockSendTweet = vi.fn().mockResolvedValue({
+        json: async () => ({
+          data: {
+            create_tweet: {
+              tweet_results: {
+                result: {
+                  rest_id: '1850000000000000002',
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      const mockScraper = {
+        login: mockLogin,
+        sendTweet: mockSendTweet,
+      };
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            username: 'my_twitter_handle',
+            password: 'my_secure_password',
+            email: 'user@example.com',
+          },
+        },
+        scraper: mockScraper as unknown as Scraper,
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(result.postId).toBe('1850000000000000002');
+      expect(mockLogin).toHaveBeenCalledWith(
+        'my_twitter_handle',
+        'my_secure_password',
+        'user@example.com',
+        undefined,
+      );
+      expect(mockSendTweet).toHaveBeenCalledWith(samplePayload.formattedContent);
+    });
+
+    it('handles Scraper post failure or session expiration gracefully', async () => {
+      const mockScraper = {
+        setCookies: vi.fn().mockResolvedValue(undefined),
+        sendTweet: vi.fn().mockRejectedValue(new Error('Session cookie expired (401)')),
+      };
+
+      const adapter = new TwitterAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: {
+            authToken: 'expired_token',
+          },
+        },
+        scraper: mockScraper as unknown as Scraper,
+      });
+
+      const result = await adapter.post(
+        { ...samplePayload, platform: 'twitter' },
+        { dryRun: false },
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.simulated).toBe(false);
+      expect(result.error).toContain('Session cookie expired (401)');
     });
   });
 

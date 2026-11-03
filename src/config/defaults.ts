@@ -68,6 +68,13 @@ export const DEFAULT_CONFIG: AppConfig = {
       enabled: true,
       dryRun: true,
       credentials: {
+        authToken: process.env.TWITTER_AUTH_TOKEN || '',
+        ct0: process.env.TWITTER_CT0 || '',
+        cookies: process.env.TWITTER_COOKIES || '',
+        username: process.env.TWITTER_USERNAME || '',
+        password: process.env.TWITTER_PASSWORD || '',
+        email: process.env.TWITTER_EMAIL || '',
+        twoFactorSecret: process.env.TWITTER_2FA_SECRET || '',
         apiKey: process.env.TWITTER_API_KEY || '',
         apiSecret: process.env.TWITTER_API_SECRET || '',
         accessToken: process.env.TWITTER_ACCESS_TOKEN || '',

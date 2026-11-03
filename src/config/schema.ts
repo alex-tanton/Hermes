@@ -139,6 +139,13 @@ export const TwitterConfigSchema = z.object({
       apiSecret: z.string().optional(),
       accessToken: z.string().optional(),
       accessSecret: z.string().optional(),
+      authToken: z.string().optional(),
+      ct0: z.string().optional(),
+      cookies: z.string().optional(),
+      username: z.string().optional(),
+      password: z.string().optional(),
+      email: z.string().optional(),
+      twoFactorSecret: z.string().optional(),
     })
     .optional(),
   tags: z.array(z.string()).default([]),

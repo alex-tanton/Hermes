@@ -130,6 +130,16 @@ export interface TwitterConfig {
   cooldownHours?: number;
   maxPostsPerDay?: number;
   credentials?: {
+    // Workaround 1: Browser session cookies (zero API keys needed)
+    authToken?: string;
+    ct0?: string;
+    cookies?: string;
+    // Workaround 2: Account credentials
+    username?: string;
+    password?: string;
+    email?: string;
+    twoFactorSecret?: string;
+    // Standard API v2 (optional / legacy)
     apiKey?: string;
     apiSecret?: string;
     accessToken?: string;
