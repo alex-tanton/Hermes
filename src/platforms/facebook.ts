@@ -25,9 +25,13 @@ export class FacebookAdapter extends BasePlatformAdapter {
     }
   }
 
+  public getEffectiveAccessToken(): string | null {
+    return this.config.credentials?.accessToken || process.env.FACEBOOK_ACCESS_TOKEN || null;
+  }
+
   public validateCredentials(): { valid: boolean; reason?: string } {
-    const creds = this.config.credentials;
-    if (!creds || !creds.accessToken) {
+    const token = this.getEffectiveAccessToken();
+    if (!token) {
       return { valid: false, reason: 'Facebook credentials missing accessToken' };
     }
     return { valid: true };
@@ -46,7 +50,8 @@ export class FacebookAdapter extends BasePlatformAdapter {
     }
 
     const credValidation = this.validateCredentials();
-    if (!credValidation.valid || !this.config.credentials?.accessToken) {
+    const token = this.getEffectiveAccessToken();
+    if (!credValidation.valid || !token) {
       return this.createErrorResult(
         payload,
         `Cannot post live to Facebook: ${credValidation.reason || 'Missing access token'}`,
@@ -59,27 +64,24 @@ export class FacebookAdapter extends BasePlatformAdapter {
     const targetUrl = `https://graph.facebook.com/v19.0/${endpoint}`;
 
     try {
-      const params = new URLSearchParams();
-      params.append('message', payload.formattedContent);
-      if (payload.referralLink?.url) {
-        params.append('link', payload.referralLink.url);
-      }
-      params.append('access_token', this.config.credentials.accessToken);
-
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: params.toString(),
+        body: new URLSearchParams({
+          message: payload.formattedContent,
+          link: payload.referralLink.url,
+          access_token: token,
+        }).toString(),
         signal: AbortSignal.timeout(10000),
       });
 
       if (!response.ok) {
-        const errorMessage = await this.extractErrorMessage(response);
+        const errorDetails = await this.extractErrorMessage(response);
         return this.createErrorResult(
           payload,
-          `Facebook Graph API failed [HTTP ${response.status}]: ${errorMessage}`,
+          `Facebook Graph API failed [HTTP ${response.status}]: ${errorDetails}`,
           destination,
         );
       }
@@ -94,23 +96,19 @@ export class FacebookAdapter extends BasePlatformAdapter {
         targetDestination: destination,
       });
     } catch (err) {
-      return this.createErrorResult(
-        payload,
-        this.formatCatchError(err, 'Facebook Graph API'),
-        destination,
-      );
+      return this.createErrorResult(payload, this.formatCatchError(err, 'Facebook'), destination);
     }
   }
 
-  private resolveTarget(targetId?: string): FacebookTarget {
+  private resolveTarget(overrideId?: string): FacebookTarget {
     const targets = this.config.targets || [];
-    if (targetId) {
-      const match = targets.find((t) => t.id === targetId || t.name === targetId);
-      if (match) return match;
+    if (targets.length === 0) {
+      return { id: 'feed', name: 'Profile Feed', type: 'feed' };
     }
-    if (targets.length > 0) {
-      return targets[0];
+    if (overrideId) {
+      const found = targets.find((t) => t.id === overrideId || t.name === overrideId);
+      if (found) return found;
     }
-    return { id: 'feed', name: 'My Profile Feed', type: 'feed' };
+    return targets[0];
   }
 }

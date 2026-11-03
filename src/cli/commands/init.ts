@@ -187,6 +187,11 @@ export async function runInitWizard(): Promise<void> {
         bluesky: {
           enabled: selectedPlatforms.includes('bluesky'),
           dryRun: true,
+          credentials: {
+            service: 'https://bsky.social',
+            identifier: '',
+            password: '',
+          },
           tags: ['#CreditCards', '#TravelHacking', '#Referral'],
         },
         discord: {

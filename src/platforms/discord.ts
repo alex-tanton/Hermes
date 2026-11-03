@@ -25,9 +25,18 @@ export class DiscordAdapter extends BasePlatformAdapter {
     }
   }
 
+  public getEffectiveWebhookUrl(): string | null {
+    return this.config.credentials?.webhookUrl || process.env.DISCORD_WEBHOOK_URL || null;
+  }
+
+  public getEffectiveBotToken(): string | null {
+    return this.config.credentials?.botToken || process.env.DISCORD_BOT_TOKEN || null;
+  }
+
   public validateCredentials(): { valid: boolean; reason?: string } {
-    const creds = this.config.credentials;
-    if (!creds || (!creds.webhookUrl && !creds.botToken)) {
+    const webhookUrl = this.getEffectiveWebhookUrl();
+    const botToken = this.getEffectiveBotToken();
+    if (!webhookUrl && !botToken) {
       return {
         valid: false,
         reason: 'Discord credentials must have either webhookUrl or botToken',
@@ -57,7 +66,7 @@ export class DiscordAdapter extends BasePlatformAdapter {
       );
     }
 
-    const webhookUrl = this.config.credentials?.webhookUrl;
+    const webhookUrl = this.getEffectiveWebhookUrl();
     if (!webhookUrl) {
       return this.createErrorResult(
         payload,
@@ -91,35 +100,29 @@ export class DiscordAdapter extends BasePlatformAdapter {
       }
 
       const data = (await response.json()) as { id?: string; channel_id?: string };
-      const msgId = data.id || `discord_${Date.now()}`;
-      const channelId = data.channel_id;
-      const postUrl = channelId
-        ? `https://discord.com/channels/@me/${channelId}/${msgId}`
-        : `https://discord.com/channels/@me/${msgId}`;
+      const messageId = data.id || `msg_${Date.now()}`;
+      const channelId = data.channel_id || target.channelName;
+      const postUrl = `https://discord.com/channels/@me/${channelId}/${messageId}`;
 
       return this.createSuccessResult(payload, {
-        postId: String(msgId),
+        postId: messageId,
         postUrl,
         targetDestination: destination,
       });
     } catch (err) {
-      return this.createErrorResult(
-        payload,
-        this.formatCatchError(err, 'Discord webhook'),
-        destination,
-      );
+      return this.createErrorResult(payload, this.formatCatchError(err, 'Discord'), destination);
     }
   }
 
-  private resolveTarget(channelName?: string): DiscordTarget {
+  private resolveTarget(overrideName?: string): DiscordTarget {
     const targets = this.config.targets || [];
-    if (channelName) {
-      const match = targets.find((t) => t.channelName === channelName);
-      if (match) return match;
+    if (targets.length === 0) {
+      return { channelName: 'general', type: 'webhook' };
     }
-    if (targets.length > 0) {
-      return targets[0];
+    if (overrideName) {
+      const found = targets.find((t) => t.channelName === overrideName);
+      if (found) return found;
     }
-    return { channelName: 'referrals', type: 'webhook' };
+    return targets[0];
   }
 }

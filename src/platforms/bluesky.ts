@@ -19,9 +19,26 @@ export class BlueskyAdapter extends BasePlatformAdapter {
     }
   }
 
+  public getEffectiveIdentifier(): string | null {
+    return this.config.credentials?.identifier || process.env.BLUESKY_HANDLE || null;
+  }
+
+  public getEffectivePassword(): string | null {
+    return this.config.credentials?.password || process.env.BLUESKY_APP_PASSWORD || null;
+  }
+
+  public getEffectiveService(): string {
+    return (
+      this.config.credentials?.service ||
+      process.env.BLUESKY_SERVICE ||
+      'https://bsky.social'
+    ).replace(/\/+$/, '');
+  }
+
   public validateCredentials(): { valid: boolean; reason?: string } {
-    const creds = this.config.credentials;
-    if (!creds || !creds.identifier || !creds.password) {
+    const identifier = this.getEffectiveIdentifier();
+    const password = this.getEffectivePassword();
+    if (!identifier || !password) {
       return { valid: false, reason: 'Bluesky credentials missing identifier or app password' };
     }
     return { valid: true };
@@ -32,23 +49,23 @@ export class BlueskyAdapter extends BasePlatformAdapter {
     options?: { dryRun?: boolean; target?: string },
   ): Promise<PostResult> {
     const isDryRun = options?.dryRun ?? this.dryRun;
-    const creds = this.config.credentials;
-    const destination = `Bluesky Feed (@${creds?.identifier || 'user'})`;
+    const identifier = this.getEffectiveIdentifier();
+    const password = this.getEffectivePassword();
+    const service = this.getEffectiveService();
+    const destination = `Bluesky Feed (@${identifier || 'user'})`;
 
     if (isDryRun) {
       return this.createSimulatedResult(payload, destination);
     }
 
     const credValidation = this.validateCredentials();
-    if (!credValidation.valid || !creds?.identifier || !creds.password) {
+    if (!credValidation.valid || !identifier || !password) {
       return this.createErrorResult(
         payload,
         `Cannot post live to Bluesky: ${credValidation.reason || 'Missing credentials'}`,
         destination,
       );
     }
-
-    const service = (creds.service || 'https://bsky.social').replace(/\/+$/, '');
 
     try {
       // Step A: Session Creation
@@ -59,17 +76,17 @@ export class BlueskyAdapter extends BasePlatformAdapter {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          identifier: creds.identifier,
-          password: creds.password,
+          identifier,
+          password,
         }),
         signal: AbortSignal.timeout(10000),
       });
 
       if (!sessionRes.ok) {
-        const errorText = await this.extractErrorMessage(sessionRes);
+        const errDetail = await this.extractErrorMessage(sessionRes);
         return this.createErrorResult(
           payload,
-          `Bluesky authentication failed [HTTP ${sessionRes.status}]: ${errorText}`,
+          `Bluesky authentication failed [HTTP ${sessionRes.status}]: ${errDetail}`,
           destination,
         );
       }
@@ -80,9 +97,11 @@ export class BlueskyAdapter extends BasePlatformAdapter {
         handle?: string;
       };
 
-      // Step B: Record Creation
-      const recordUrl = `${service}/xrpc/com.atproto.repo.createRecord`;
-      const recordRes = await fetch(recordUrl, {
+      // Step B: Record Creation (Post)
+      const postUrl = `${service}/xrpc/com.atproto.repo.createRecord`;
+      const createdAt = new Date().toISOString();
+
+      const recordRes = await fetch(postUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.accessJwt}`,
@@ -94,31 +113,29 @@ export class BlueskyAdapter extends BasePlatformAdapter {
           record: {
             $type: 'app.bsky.feed.post',
             text: payload.formattedContent,
-            createdAt: new Date().toISOString(),
+            createdAt,
           },
         }),
         signal: AbortSignal.timeout(10000),
       });
 
       if (!recordRes.ok) {
-        const errorText = await this.extractErrorMessage(recordRes);
+        const errDetail = await this.extractErrorMessage(recordRes);
         return this.createErrorResult(
           payload,
-          `Bluesky post creation failed [HTTP ${recordRes.status}]: ${errorText}`,
+          `Bluesky post creation failed [HTTP ${recordRes.status}]: ${errDetail}`,
           destination,
         );
       }
 
-      const recordData = (await recordRes.json()) as { uri?: string; cid?: string };
-      const rkey = recordData.uri
-        ? recordData.uri.split('/').pop() || `bsky_${Date.now()}`
-        : `bsky_${Date.now()}`;
-      const handle = session.handle || creds.identifier;
-      const postUrl = `https://bsky.app/profile/${handle}/post/${rkey}`;
+      const record = (await recordRes.json()) as { uri?: string; cid?: string };
+      const rkey = record.uri ? record.uri.split('/').pop() : `post_${Date.now()}`;
+      const handle = session.handle || identifier;
+      const webUrl = `https://bsky.app/profile/${handle}/post/${rkey}`;
 
       return this.createSuccessResult(payload, {
         postId: rkey,
-        postUrl,
+        postUrl: webUrl,
         targetDestination: destination,
       });
     } catch (err) {
