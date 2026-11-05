@@ -30,23 +30,28 @@ export abstract class BasePlatformAdapter {
    */
   public abstract post(
     payload: PostPayload,
-    options?: { dryRun?: boolean; target?: string },
+    options?: { dryRun?: boolean; target?: string | unknown },
   ): Promise<PostResult>;
 
   /**
    * Standardized simulator response generator
    */
-  protected createSimulatedResult(payload: PostPayload, targetDestination?: string): PostResult {
+  protected createSimulatedResult(
+    payload: PostPayload,
+    targetDestination?: string,
+    messagePreview?: string,
+    details?: { postId?: string; postUrl?: string },
+  ): PostResult {
     const simId = `sim_${this.name}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     return {
       success: true,
       platform: this.name,
       linkId: payload.referralLink.id,
-      postId: simId,
-      postUrl: `https://mock.${this.name}.com/post/${simId}`,
+      postId: details?.postId || simId,
+      postUrl: details?.postUrl || `https://mock.${this.name}.com/post/${simId}`,
       simulated: true,
       timestamp: new Date().toISOString(),
-      messagePreview: payload.formattedContent,
+      messagePreview: messagePreview ?? payload.formattedContent,
       targetDestination: targetDestination || 'default',
     };
   }
@@ -76,7 +81,12 @@ export abstract class BasePlatformAdapter {
    */
   protected createSuccessResult(
     payload: PostPayload,
-    details: { postId?: string; postUrl?: string; targetDestination?: string },
+    details: {
+      postId?: string;
+      postUrl?: string;
+      targetDestination?: string;
+      messagePreview?: string;
+    },
   ): PostResult {
     return {
       success: true,
@@ -86,7 +96,7 @@ export abstract class BasePlatformAdapter {
       postUrl: details.postUrl,
       simulated: false,
       timestamp: new Date().toISOString(),
-      messagePreview: payload.formattedContent,
+      messagePreview: details.messagePreview ?? payload.formattedContent,
       targetDestination: details.targetDestination,
     };
   }

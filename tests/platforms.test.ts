@@ -209,6 +209,217 @@ describe('Platform Adapters', () => {
       expect(result.messagePreview).toBe(samplePayload.formattedContent);
     });
 
+    it('respects link-level targetSubreddit override', async () => {
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: true,
+          targets: [{ name: 'churning', type: 'comment' }],
+        },
+      });
+
+      const payloadWithSubreddit: PostPayload = {
+        ...samplePayload,
+        referralLink: {
+          ...samplePayload.referralLink,
+          targetSubreddit: 'coupons',
+        },
+      };
+
+      const result = await adapter.post(payloadWithSubreddit);
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(true);
+      expect(result.targetDestination).toContain('r/coupons (post)');
+    });
+
+    it('respects link-level targetSubreddits and inherits global target flair', async () => {
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: true,
+          targets: [
+            { name: 'referralcodes', type: 'post', flair: 'Credit Cards' },
+            { name: 'deals', type: 'post', flair: 'Shopping' },
+          ],
+        },
+      });
+
+      const payloadWithLinkTargets: PostPayload = {
+        ...samplePayload,
+        referralLink: {
+          ...samplePayload.referralLink,
+          targetSubreddits: ['deals'],
+        },
+      };
+
+      const result = await adapter.post(payloadWithLinkTargets);
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(true);
+      expect(result.targetDestination).toContain('r/deals (post [Shopping])');
+    });
+
+    it('extracts thread ID and posts bare link when targetSubreddit is a thread URL', async () => {
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: true,
+          targets: [],
+        },
+      });
+
+      const threadUrlPayload: PostPayload = {
+        ...samplePayload,
+        referralLink: {
+          ...samplePayload.referralLink,
+          url: 'https://www.americanexpress.com/ref/example',
+          targetSubreddit:
+            'https://www.reddit.com/r/churningreferrals/comments/1xntgp4/referrals_american_express_platinum/',
+        },
+      };
+
+      const result = await adapter.post(threadUrlPayload);
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(true);
+      expect(result.targetDestination).toBe('r/churningreferrals (comment on thread 1xntgp4)');
+      // For referral thread comments, it should ONLY post the bare link
+      expect(result.messagePreview).toBe('https://www.americanexpress.com/ref/example');
+    });
+
+    it('resolves target megathread via GET search in dry-run mode without submitting write requests', async () => {
+      let getSearchCalled = false;
+      let postCommentCalled = false;
+
+      const fetchMock = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes('/search') && (!opts?.method || opts.method === 'GET')) {
+          getSearchCalled = true;
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                children: [
+                  {
+                    data: {
+                      name: 't3_1slcw85',
+                      title: '[referrals] Chase Freedom Unlimited',
+                      permalink:
+                        '/r/churningreferrals/comments/1slcw85/referrals_chase_freedom_unlimited/',
+                    },
+                  },
+                ],
+              },
+            }),
+          };
+        }
+        if (url.includes('/api/comment') || url.includes('/api/submit')) {
+          postCommentCalled = true;
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return { ok: false, status: 404 };
+      });
+
+      vi.stubGlobal('fetch', fetchMock);
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: true,
+          credentials: { accessToken: 'test_devvit_token' },
+          targets: [],
+        },
+      });
+
+      const searchPayload: PostPayload = {
+        ...samplePayload,
+        referralLink: {
+          ...samplePayload.referralLink,
+          url: 'https://www.referyourchasecard.com/18s/FIG0CQ5GP4',
+          targetSubreddit: {
+            name: 'churningreferrals',
+            type: 'comment',
+            searchQuery: 'Referrals Chase Freedom Unlimited',
+            linkOnly: true,
+          },
+        },
+      };
+
+      const result = await adapter.post(searchPayload, { dryRun: true });
+
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(true);
+      expect(getSearchCalled).toBe(true);
+      expect(postCommentCalled).toBe(false);
+      expect(result.targetDestination).toBe(
+        'r/churningreferrals (comment on "[referrals] Chase Freedom Unlimited")',
+      );
+      expect(result.postUrl).toBe(
+        'https://www.reddit.com/r/churningreferrals/comments/1slcw85/referrals_chase_freedom_unlimited/',
+      );
+      expect(result.messagePreview).toBe('https://www.referyourchasecard.com/18s/FIG0CQ5GP4');
+
+      vi.unstubAllGlobals();
+    });
+
+    it('submits live comment with thing_id and bare link to Reddit API', async () => {
+      let commentApiCalled = false;
+      let capturedBody: string | null = null;
+
+      const fetchMock = vi.fn().mockImplementation(async (url: string, opts: RequestInit) => {
+        if (url.includes('/api/comment')) {
+          commentApiCalled = true;
+          capturedBody = opts.body as string;
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              json: {
+                data: {
+                  things: [{ data: { id: 't1_comment123', name: 't1_comment123' } }],
+                },
+              },
+            }),
+          };
+        }
+        return { ok: false, status: 404, text: async () => 'Not found' };
+      });
+
+      vi.stubGlobal('fetch', fetchMock);
+
+      const adapter = new RedditAdapter({
+        config: {
+          enabled: true,
+          dryRun: false,
+          credentials: { accessToken: 'test_token' },
+        },
+      });
+
+      const liveCommentPayload: PostPayload = {
+        ...samplePayload,
+        referralLink: {
+          ...samplePayload.referralLink,
+          url: 'https://www.americanexpress.com/ref/live_example',
+          targetSubreddit: {
+            name: 'churningreferrals',
+            type: 'comment',
+            threadId: '1xntgp4',
+            linkOnly: true,
+          },
+        },
+      };
+
+      const result = await adapter.post(liveCommentPayload, { dryRun: false });
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(false);
+      expect(commentApiCalled).toBe(true);
+      expect(capturedBody).toContain('thing_id=t3_1xntgp4');
+      expect(capturedBody).toContain(
+        'text=https%3A%2F%2Fwww.americanexpress.com%2Fref%2Flive_example',
+      );
+      expect(result.messagePreview).toBe('https://www.americanexpress.com/ref/live_example');
+
+      vi.unstubAllGlobals();
+    });
+
     it('fails safely when live mode attempted without credentials', async () => {
       const adapter = new RedditAdapter({
         config: { enabled: true, dryRun: false },
