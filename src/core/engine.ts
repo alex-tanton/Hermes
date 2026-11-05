@@ -1,5 +1,6 @@
 import { AppConfig, PlatformType, PostResult, ReferralLink, ToneType } from '../types/index.js';
 import { platformRegistry } from '../platforms/registry.js';
+import { RedditAdapter } from '../platforms/reddit.js';
 import { templateEngine } from '../templates/engine.js';
 import { historyTracker, HistoryTracker } from './history.js';
 import { logger } from './logger.js';
@@ -121,48 +122,69 @@ export class HermesEngine {
 
       // Dispatch or simulate
       try {
-        const postResult = await adapter.post(payload, { dryRun: isDryRun });
+        const postResults: PostResult[] = [];
 
-        // Record to persistent audit history
-        await this.history.record({
-          timestamp: postResult.timestamp,
-          platform: postResult.platform,
-          linkId: link.id,
-          linkName: link.name,
-          category: link.category,
-          simulated: postResult.simulated,
-          targetDestination: postResult.targetDestination,
-          status: postResult.success ? (postResult.simulated ? 'simulated' : 'success') : 'failed',
-          error: postResult.error,
-        });
-
-        // Visual preview output
-        logger.previewBox(
-          platform,
-          postResult.targetDestination || 'Default',
-          postResult.messagePreview,
-          postResult.simulated,
-        );
-
-        if (postResult.success) {
-          logger.success(
-            `Posted [${link.name}] to ${platform} -> ${postResult.postUrl || postResult.targetDestination}`,
-          );
-        } else {
-          logger.error(`Failed posting [${link.name}] to ${platform}: ${postResult.error}`);
-          if (
-            postResult.error &&
-            /429|rate\s*limit/i.test(postResult.error) &&
-            !postResult.simulated
-          ) {
-            this.setPlatformBackoff(platform);
-            logger.warn(
-              `Rate limit detected for [${platform}]. Backing off platform for 60 minutes.`,
-            );
+        if (platform === 'reddit' && adapter instanceof RedditAdapter) {
+          const targets = adapter.getLinkTargets(link);
+          if (targets.length > 0) {
+            for (const target of targets) {
+              const res = await adapter.post(payload, { dryRun: isDryRun, target });
+              postResults.push(res);
+            }
           }
         }
 
-        results.push(postResult);
+        if (postResults.length === 0) {
+          const res = await adapter.post(payload, { dryRun: isDryRun });
+          postResults.push(res);
+        }
+
+        for (const postResult of postResults) {
+          // Record to persistent audit history
+          await this.history.record({
+            timestamp: postResult.timestamp,
+            platform: postResult.platform,
+            linkId: link.id,
+            linkName: link.name,
+            category: link.category,
+            simulated: postResult.simulated,
+            targetDestination: postResult.targetDestination,
+            status: postResult.success
+              ? postResult.simulated
+                ? 'simulated'
+                : 'success'
+              : 'failed',
+            error: postResult.error,
+          });
+
+          // Visual preview output
+          logger.previewBox(
+            platform,
+            postResult.targetDestination || 'Default',
+            postResult.messagePreview,
+            postResult.simulated,
+          );
+
+          if (postResult.success) {
+            logger.success(
+              `Posted [${link.name}] to ${platform} -> ${postResult.postUrl || postResult.targetDestination}`,
+            );
+          } else {
+            logger.error(`Failed posting [${link.name}] to ${platform}: ${postResult.error}`);
+            if (
+              postResult.error &&
+              /429|rate\s*limit/i.test(postResult.error) &&
+              !postResult.simulated
+            ) {
+              this.setPlatformBackoff(platform);
+              logger.warn(
+                `Rate limit detected for [${platform}]. Backing off platform for 60 minutes.`,
+              );
+            }
+          }
+
+          results.push(postResult);
+        }
       } catch (err) {
         logger.error(`Unexpected error posting to ${platform}:`, err);
       }

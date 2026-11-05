@@ -435,4 +435,46 @@ describe('HermesEngine', () => {
     const resultsAfter = await engine.executeCycle({ filterPlatform: 'discord' });
     expect(resultsAfter.length).toBe(1);
   });
+
+  it('dispatches to multiple search query threads for a single referral link on Reddit', async () => {
+    const multiSearchConfig: AppConfig = {
+      ...mockConfig,
+      platforms: {
+        reddit: {
+          enabled: true,
+          dryRun: true,
+          targets: [],
+        },
+      },
+      referralLinks: [
+        {
+          id: 'chase-sapphire-dual',
+          enabled: true,
+          category: 'credit_card',
+          provider: 'Chase',
+          name: 'Chase Sapphire (Preferred & Reserve)',
+          url: 'https://example.com/sapphire',
+          bonusSummary: '100,000 points',
+          targetSubreddit: {
+            name: 'churningreferrals',
+            type: 'comment',
+            searchQueries: [
+              'Referrals Chase Sapphire Preferred',
+              'Referrals Chase Sapphire Reserve',
+            ],
+            linkOnly: true,
+          },
+        },
+      ],
+    };
+
+    const engine = new HermesEngine(multiSearchConfig, testHistory);
+    const results = await engine.executeCycle({ filterPlatform: 'reddit' });
+
+    expect(results.length).toBe(2);
+    expect(results[0].targetDestination).toContain('Referrals Chase Sapphire Preferred');
+    expect(results[1].targetDestination).toContain('Referrals Chase Sapphire Reserve');
+    expect(results[0].messagePreview).toBe('https://example.com/sapphire');
+    expect(results[1].messagePreview).toBe('https://example.com/sapphire');
+  });
 });
