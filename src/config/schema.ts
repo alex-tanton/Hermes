@@ -12,6 +12,20 @@ export const ProgramCategorySchema = z.enum([
 
 export const ToneTypeSchema = z.enum(['story', 'informative', 'deal_alert', 'comparison']);
 
+export const RedditTargetSchema = z.object({
+  name: z.string().min(1).default('referralcodes'),
+  type: z.enum(['post', 'comment']).default('post'),
+  megathreadSearchQuery: z.string().optional(),
+  searchQuery: z.union([z.string(), z.array(z.string())]).optional(),
+  searchQueries: z.array(z.string()).optional(),
+  threadUrl: z.string().optional(),
+  threadId: z.string().optional(),
+  linkOnly: z.boolean().optional(),
+  flair: z.string().optional(),
+});
+
+export const TargetSubredditItemSchema = z.union([z.string(), RedditTargetSchema]);
+
 export const ReferralLinkSchema = z.object({
   id: z.string().min(1, 'Referral link ID is required'),
   enabled: z.boolean().default(true),
@@ -23,6 +37,14 @@ export const ReferralLinkSchema = z.object({
   personalAnecdote: z.string().optional(),
   tags: z.array(z.string()).default([]),
   targetPlatforms: z.array(PlatformTypeSchema).optional(),
+  targetSubreddit: TargetSubredditItemSchema.optional(),
+  targetSubreddits: z
+    .union([TargetSubredditItemSchema, z.array(TargetSubredditItemSchema)])
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      return Array.isArray(val) ? val : [val];
+    }),
   priority: z.number().min(1).max(100).default(50).optional(),
 });
 
@@ -43,13 +65,6 @@ export const ScheduleSchema = z.object({
   jitterMinutes: z.number().min(0).max(180).default(15),
   maxPostsPerDay: z.number().min(1).max(100).default(10),
   linkCooldownHours: z.number().min(1).default(24),
-});
-
-export const RedditTargetSchema = z.object({
-  name: z.string().min(1),
-  type: z.enum(['post', 'comment']).default('post'),
-  megathreadSearchQuery: z.string().optional(),
-  flair: z.string().optional(),
 });
 
 export const RedditConfigSchema = z.object({

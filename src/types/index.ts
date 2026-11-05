@@ -22,6 +22,8 @@ export interface ReferralLink {
   personalAnecdote?: string;
   tags?: string[];
   targetPlatforms?: PlatformType[];
+  targetSubreddit?: string | RedditTarget;
+  targetSubreddits?: Array<string | RedditTarget>;
   priority?: number;
 }
 
@@ -53,6 +55,11 @@ export interface RedditTarget {
   name: string;
   type: 'post' | 'comment';
   megathreadSearchQuery?: string;
+  searchQuery?: string | string[];
+  searchQueries?: string[];
+  threadUrl?: string;
+  threadId?: string;
+  linkOnly?: boolean;
   flair?: string;
 }
 

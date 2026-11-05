@@ -26,14 +26,25 @@ platforms:
       accessToken: '${REDDIT_ACCESS_TOKEN:-}'
       userAgent: 'node:hermes:v1.1.0'
     targets:
+      # Target Option 1: Standard Subreddit Post with flair
       - name: 'referralcodes'
         type: 'post'
         flair: 'Credit Cards'
+
+      # Target Option 2: Subreddit Post without flair
+      - name: 'CreditCards'
+        type: 'post'
+
+      # Target Option 3: Recurring Megathread Comment via Search Query
       - name: 'churning'
         type: 'comment'
         megathreadSearchQuery: 'Monthly Referral Thread'
-      - name: 'CreditCards'
+
+      # Target Option 4: Direct Thread Comment by URL
+      - name: 'churningreferrals'
         type: 'comment'
+        threadUrl: 'https://www.reddit.com/r/churningreferrals/comments/1xntgp4/referrals_american_express_platinum/'
+        linkOnly: true
 
   facebook:
     enabled: true
@@ -86,6 +97,11 @@ platforms:
       - '#ReferralBonus'
 
 referralLinks:
+  # ==============================================================================
+  # TARGETING TYPE 1: Global / Default Targeting
+  # Omit targetSubreddit and targetPlatforms. Eligible for all active platforms
+  # and randomly draws from the global platforms.reddit.targets pool.
+  # ==============================================================================
   - id: 'chase-freedom-unlimited'
     enabled: true
     category: 'credit_card'
@@ -95,50 +111,112 @@ referralLinks:
     bonusSummary: 'Earn $200 cash back (or 20,000 UR points) after qualifying spend.'
     personalAnecdote: 'My go-to daily driver card! The 1.5% base on everything plus 3% on dining adds up so fast. Paired with Sapphire, these points transfer directly to Hyatt.'
     tags: ['chase', 'freedom', 'cashback', 'not-annual-fee']
-    targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
     priority: 80
 
-  - id: 'chase-sapphire'
+  # ==============================================================================
+  # TARGETING TYPE 2: Direct Reddit Thread URL (Auto-Comment & Bare Link)
+  # For subreddits like r/churningreferrals where you must comment under a specific
+  # thread with JUST the raw referral link. Hermes automatically detects this as a
+  # comment target, extracts the thread ID (t3_1xntgp4), and posts only the URL.
+  # ==============================================================================
+  - id: 'amex-platinum-thread-url'
+    enabled: true
+    category: 'credit_card'
+    provider: 'American Express'
+    name: 'American Express Platinum'
+    url: 'https://www.americanexpress.com/example-platinum-referral'
+    targetSubreddit: 'https://www.reddit.com/r/churningreferrals/comments/1xntgp4/referrals_american_express_platinum/'
+    bonusSummary: 'Earn 175,000 Membership Rewards points after qualifying spend.'
+    tags: ['amex', 'platinum', 'travel', 'points']
+    priority: 95
+
+  # ==============================================================================
+  # TARGETING TYPE 3: Dynamic Megathread Search (Auto-Locates Recurring Posts)
+  # When recurring threads (e.g. refreshed every 6 months) get new URLs, Hermes
+  # queries the subreddit for the newest matching title before commenting.
+  # Can also take a list of searchQueries to post across multiple threads!
+  # ==============================================================================
+  - id: 'chase-sapphire-multi-thread'
     enabled: true
     category: 'credit_card'
     provider: 'Chase'
-    name: 'Chase Sapphire Reserve® / Sapphire Preferred®'
-    url: 'https://www.referyourchasecard.com/19y/MSUZXKR6HR'
-    bonusSummary: 'Earn 100,000 bonus points with Sapphire Reserve® or 75,000 bonus points with Sapphire Preferred®.'
-    personalAnecdote: 'The holy grail of travel cards! Used my signup points for a 5-night all-inclusive stay in Cancun. Transferring to airlines and hotels gets incredible value.'
-    tags: ['chase', 'sapphire', 'travel', 'points']
-    targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
-    priority: 95
+    name: 'Chase Sapphire (Preferred & Reserve)'
+    url: 'https://www.referyourchasecard.com/example-sapphire'
+    targetSubreddit:
+      name: 'churningreferrals'
+      type: 'comment'
+      searchQueries:
+        - 'Referrals Chase Sapphire Preferred'
+        - 'Referrals Chase Sapphire Reserve'
+      linkOnly: true
+    bonusSummary: 'Earn 100,000 bonus points after qualifying spend.'
+    tags: ['chase', 'sapphire', 'travel']
 
+  # ==============================================================================
+  # TARGETING TYPE 4: Single Dedicated Subreddit (Simple string)
+  # Dedicated to a specific subreddit. Inherits any global flair if configured.
+  # ==============================================================================
   - id: 'capital-one-venture-one'
     enabled: true
     category: 'credit_card'
     provider: 'Capital One'
     name: 'Capital One VentureOne'
     url: 'https://i.capitalone.com/JpOQ4YOO3'
+    targetSubreddit: 'CreditCards'
     bonusSummary: 'Earn 20,000 bonus miles once you spend $500 on purchases within 3 months from account opening.'
     personalAnecdote: 'Zero annual fee and no foreign transaction fees make this card my favorite international travel companion. Straightforward 1.25x miles on all purchases.'
     tags: ['capital-one', 'venture', 'no-annual-fee', 'travel-miles']
-    targetPlatforms: ['reddit', 'facebook', 'bluesky', 'discord', 'twitter']
 
+  # ==============================================================================
+  # TARGETING TYPE 5: Multiple Subreddit Rotation (Array)
+  # When Reddit runs, Hermes will rotate among this list of subreddits for this deal.
+  # ==============================================================================
   - id: 'rakuten-cashback'
     enabled: true
     category: 'shopping'
     provider: 'Rakuten'
     name: 'Rakuten Cash Back'
     url: 'https://www.rakuten.com/r/EXAMPLE_REFERRAL'
+    targetSubreddits:
+      - 'coupons'
+      - 'deals'
+      - 'referralcodes'
     bonusSummary: 'Earn $30 bonus after spending $30 at participating stores.'
     personalAnecdote: 'Literally free money for shopping you already do online (Nike, Target, Dell, etc.). Can even earn American Express Membership Rewards instead of cash!'
     tags: ['shopping', 'cashback', 'rakuten', 'deals']
-    targetPlatforms: ['reddit', 'facebook', 'discord', 'bluesky']
 
-  - id: 'topcashback'
+  # ==============================================================================
+  # TARGETING TYPE 6: Custom Flair Override per Link
+  # Overrides the subreddit's default flair for this specific referral link.
+  # E.g. Posts to r/referralcodes with "Clothing & Apparel" flair instead of "Credit Cards".
+  # ==============================================================================
+  - id: 'nobull-footwear'
+    enabled: true
+    category: 'custom'
+    provider: 'NoBull'
+    name: 'NoBull Training Gear'
+    url: 'https://oken.do/example-nobull'
+    targetSubreddit:
+      name: 'referralcodes'
+      type: 'post'
+      flair: 'Clothing & Apparel'
+    bonusSummary: '$20 off your first purchase of $99+'
+    personalAnecdote: 'Great durable athletic footwear and lifting shoes.'
+    tags: ['nobull', 'apparel', 'shoes', 'fitness']
+
+  # ==============================================================================
+  # TARGETING TYPE 7: Platform Restriction (`targetPlatforms`)
+  # Restricts posting ONLY to selected platforms (e.g. social feeds only, skipping Reddit & Discord).
+  # ==============================================================================
+  - id: 'topcashback-social-only'
     enabled: true
     category: 'shopping'
     provider: 'TopCashback'
     name: 'TopCashback'
     url: 'https://www.topcashback.com/ref/EXAMPLE_REFERRAL'
+    targetPlatforms:
+      - 'twitter'
+      - 'bluesky'
     bonusSummary: 'Highest cashback guarantee + $10-$35 welcome bonus.'
     personalAnecdote: 'TopCashback consistently beats every other shopping portal for merchant payout percentages. I never checkout online without checking it first.'
     tags: ['shopping', 'cashback', 'coupons']
-    targetPlatforms: ['reddit', 'facebook', 'discord']
